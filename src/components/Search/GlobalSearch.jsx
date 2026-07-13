@@ -296,7 +296,7 @@ function GlobalSearch() {
                         type="button"
                         onClick={() =>
                           handleNavigate(
-                            `/dashboard/usuarios/${profile.id}`,
+                            `/dashboard/usuarios/${encodeURIComponent(profile.id)}`,
                           )
                         }
                         className="flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left transition hover:bg-blue-50"
@@ -322,7 +322,7 @@ function GlobalSearch() {
 
                           <p className="mt-1 truncate text-xs text-slate-500">
                             Calificación:{" "}
-                            {Number(profile.rating ?? 5).toFixed(1)}
+                            {Number(profile.rating ?? 0).toFixed(1)}
                           </p>
                         </div>
                       </button>

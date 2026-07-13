@@ -1,11 +1,14 @@
 import { useCallback, useEffect, useState } from "react"
 import { MessageCircleMore, Sparkles } from "lucide-react"
+import { useSearchParams } from "react-router-dom"
 
 import ConversationList from "../../components/Chat/ConversationList"
 import MessagePanel from "../../components/Chat/MessagePanel"
 import {
   getConversationMessages,
   getConversations,
+  getOrCreateDirectConversation,
+  searchChatUsers,
   sendMessage,
   subscribeToAllMessages,
   subscribeToConversation,
@@ -24,11 +27,15 @@ function sortConversations(conversations) {
 }
 
 function Chat() {
+  const [searchParams, setSearchParams] = useSearchParams()
   const [currentUserId, setCurrentUserId] = useState(null)
   const [conversations, setConversations] = useState([])
   const [selectedConversation, setSelectedConversation] = useState(null)
   const [messages, setMessages] = useState([])
   const [searchTerm, setSearchTerm] = useState("")
+  const [userResults, setUserResults] = useState([])
+  const [searchingUsers, setSearchingUsers] = useState(false)
+  const [startingUserId, setStartingUserId] = useState(null)
   const [loadingConversations, setLoadingConversations] = useState(true)
   const [loadingMessages, setLoadingMessages] = useState(false)
   const [sending, setSending] = useState(false)
@@ -110,6 +117,99 @@ function Chat() {
       unsubscribeAllMessages()
     }
   }, [loadConversations])
+
+  useEffect(() => {
+    const cleanTerm = searchTerm.trim()
+
+    if (cleanTerm.length < 2) {
+      setUserResults([])
+      setSearchingUsers(false)
+      return undefined
+    }
+
+    let mounted = true
+    const timer = window.setTimeout(async () => {
+      setSearchingUsers(true)
+      try {
+        const users = await searchChatUsers(cleanTerm)
+        if (mounted) setUserResults(users)
+      } catch (error) {
+        console.error(error)
+        if (mounted) {
+          setUserResults([])
+          setFeedback("No se pudieron buscar estudiantes. Revisa los permisos de perfiles en Supabase.")
+        }
+      } finally {
+        if (mounted) setSearchingUsers(false)
+      }
+    }, 350)
+
+    return () => {
+      mounted = false
+      window.clearTimeout(timer)
+    }
+  }, [searchTerm])
+
+  async function handleStartConversation(targetUser) {
+    setStartingUserId(targetUser.id)
+    setFeedback("")
+
+    try {
+      const conversationId = await getOrCreateDirectConversation(targetUser.id)
+      const refreshedConversations = await getConversations()
+      setConversations(refreshedConversations)
+
+      const conversation = refreshedConversations.find(
+        (item) => Number(item.id) === Number(conversationId),
+      )
+
+      if (!conversation) {
+        throw new Error("La conversación se creó, pero no pudo cargarse. Actualiza la página.")
+      }
+
+      setSelectedConversation(conversation)
+      setSearchTerm("")
+      setUserResults([])
+    } catch (error) {
+      console.error(error)
+      setFeedback(error.message || "No se pudo iniciar la conversación.")
+    } finally {
+      setStartingUserId(null)
+    }
+  }
+
+  useEffect(() => {
+    const targetUserId = searchParams.get("user")
+    if (!targetUserId || loadingConversations || startingUserId) return
+
+    let active = true
+    async function openDirectConversation() {
+      setStartingUserId(targetUserId)
+      setFeedback("")
+      try {
+        const conversationId = await getOrCreateDirectConversation(targetUserId)
+        const refreshedConversations = await getConversations()
+        if (!active) return
+        setConversations(refreshedConversations)
+        const conversation = refreshedConversations.find(
+          (item) => Number(item.id) === Number(conversationId),
+        )
+        if (!conversation) throw new Error("No se pudo abrir la conversación.")
+        setSelectedConversation(conversation)
+        setSearchParams({}, { replace: true })
+      } catch (error) {
+        console.error(error)
+        if (active) {
+          setFeedback(error.message || "No se pudo iniciar la conversación.")
+          setSearchParams({}, { replace: true })
+        }
+      } finally {
+        if (active) setStartingUserId(null)
+      }
+    }
+    openDirectConversation()
+    return () => { active = false }
+  }, [loadingConversations, searchParams, setSearchParams, startingUserId])
 
   useEffect(() => {
     const conversationId = selectedConversation?.id
@@ -228,6 +328,10 @@ function Chat() {
             onSelect={setSelectedConversation}
             searchTerm={searchTerm}
             onSearchChange={setSearchTerm}
+            userResults={userResults}
+            searchingUsers={searchingUsers}
+            startingUserId={startingUserId}
+            onStartConversation={handleStartConversation}
           />
         </div>
 

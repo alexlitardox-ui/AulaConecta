@@ -108,76 +108,62 @@ export async function createMaterial(materialData) {
   return data
 }
 
+async function hydrateMaterials(rows, { includeAuthor = false } = {}) {
+  const materials = rows ?? []
+  if (!materials.length) return []
+
+  const subjectIds = [...new Set(materials.map((item) => item.subject_id).filter(Boolean))]
+  const userIds = includeAuthor
+    ? [...new Set(materials.map((item) => item.user_id).filter(Boolean))]
+    : []
+
+  const [subjectsResult, profilesResult] = await Promise.all([
+    subjectIds.length
+      ? supabase.from("subjects").select("id,name,code").in("id", subjectIds)
+      : Promise.resolve({ data: [], error: null }),
+    userIds.length
+      ? supabase.from("profiles").select("id,first_name,last_name,avatar_url").in("id", userIds)
+      : Promise.resolve({ data: [], error: null }),
+  ])
+
+  if (subjectsResult.error) console.warn("No se pudieron cargar materias de materiales:", subjectsResult.error)
+  if (profilesResult.error) console.warn("No se pudieron cargar autores de materiales:", profilesResult.error)
+
+  const subjects = new Map((subjectsResult.data ?? []).map((item) => [item.id, item]))
+  const profiles = new Map((profilesResult.data ?? []).map((item) => [item.id, item]))
+
+  return materials.map((item) => ({
+    ...item,
+    subject: subjects.get(item.subject_id) ?? null,
+    ...(includeAuthor ? { author: profiles.get(item.user_id) ?? null } : {}),
+  }))
+}
+
 export async function getMaterials() {
   const { data, error } = await supabase
     .from("materials")
-    .select(`
-      id,
-      user_id,
-      title,
-      description,
-      material_type,
-      file_path,
-      external_url,
-      original_file_name,
-      mime_type,
-      file_size,
-      download_count,
-      created_at,
-      subject:subjects (
-        id,
-        name,
-        code
-      ),
-      author:profiles!materials_user_id_fkey (
-        id,
-        first_name,
-        last_name
-      )
-    `)
+    .select("id,user_id,subject_id,title,description,material_type,file_path,external_url,original_file_name,mime_type,file_size,download_count,created_at")
     .eq("is_active", true)
     .eq("review_status", "approved")
     .order("created_at", { ascending: false })
 
   if (error) throw error
-
-  return data ?? []
+  return hydrateMaterials(data, { includeAuthor: true })
 }
 
 export async function getMyMaterials() {
   const user = await getAuthenticatedUser()
-
   const { data, error } = await supabase
     .from("materials")
-    .select(`
-      id,
-      user_id,
-      title,
-      description,
-      material_type,
-      file_path,
-      original_file_name,
-      mime_type,
-      file_size,
-      download_count,
-      review_status,
-      is_active,
-      created_at,
-      subject:subjects (
-        id,
-        name,
-        code
-      )
-    `)
+    .select("id,user_id,subject_id,title,description,material_type,file_path,original_file_name,mime_type,file_size,download_count,review_status,is_active,created_at")
     .eq("user_id", user.id)
     .order("created_at", { ascending: false })
 
   if (error) throw error
-
-  return data ?? []
+  return hydrateMaterials(data)
 }
 
-export async function getMaterialDownloadUrl(filePath) {
+export async function getMaterialDownloadUrl(filePath, materialId = null) {
   if (!filePath) {
     throw new Error("El material no tiene un archivo asociado.")
   }
@@ -190,6 +176,15 @@ export async function getMaterialDownloadUrl(filePath) {
 
   if (error) throw error
 
+  if (materialId) {
+    const { error: countError } = await supabase.rpc("register_material_download", {
+      target_material_id: Number(materialId),
+    })
+    if (countError && countError.code !== "42883") {
+      console.warn("No se pudo registrar la descarga:", countError)
+    }
+  }
+
   return data.signedUrl
 }
 
@@ -200,21 +195,28 @@ export async function deleteMaterial(material) {
     throw new Error("No tienes permiso para eliminar este material.")
   }
 
-  if (material.file_path) {
-    const { error: storageError } = await supabase.storage
-      .from(BUCKET_NAME)
-      .remove([material.file_path])
-
-    if (storageError) throw storageError
-  }
-
-  const { error } = await supabase
+  const { data: deletedMaterial, error } = await supabase
     .from("materials")
     .delete()
     .eq("id", material.id)
     .eq("user_id", user.id)
+    .select("id, file_path")
+    .maybeSingle()
 
   if (error) throw error
+  if (!deletedMaterial) {
+    throw new Error("El material ya no existe o no tienes permiso para eliminarlo.")
+  }
+
+  if (deletedMaterial.file_path) {
+    const { error: storageError } = await supabase.storage
+      .from(BUCKET_NAME)
+      .remove([deletedMaterial.file_path])
+
+    if (storageError) {
+      console.error("El registro fue eliminado, pero quedó un archivo huérfano en Storage:", storageError)
+    }
+  }
 }
 
 export async function getFavoriteMaterialIds() {
@@ -258,47 +260,27 @@ export async function removeMaterialFavorite(materialId) {
 export async function getFavoriteMaterials() {
   const user = await getAuthenticatedUser()
 
-  const { data, error } = await supabase
+  const { data: favorites, error: favoritesError } = await supabase
     .from("material_favorites")
-    .select(`
-      material_id,
-      created_at,
-      material:materials!material_favorites_material_id_fkey (
-        id,
-        user_id,
-        title,
-        description,
-        material_type,
-        file_path,
-        external_url,
-        original_file_name,
-        mime_type,
-        file_size,
-        download_count,
-        created_at,
-        is_active,
-        review_status,
-        subject:subjects (
-          id,
-          name,
-          code
-        ),
-        author:profiles!materials_user_id_fkey (
-          id,
-          first_name,
-          last_name
-        )
-      )
-    `)
+    .select("material_id,created_at")
     .eq("user_id", user.id)
     .order("created_at", { ascending: false })
 
-  if (error) throw error
+  if (favoritesError) throw favoritesError
 
-  return (data ?? [])
-    .map((item) => item.material)
-    .filter(
-      (material) =>
-        material && material.is_active && material.review_status === "approved",
-    )
+  const materialIds = (favorites ?? []).map((item) => item.material_id).filter(Boolean)
+  if (!materialIds.length) return []
+
+  const { data: materials, error: materialsError } = await supabase
+    .from("materials")
+    .select("id,user_id,subject_id,title,description,material_type,file_path,external_url,original_file_name,mime_type,file_size,download_count,created_at,is_active,review_status")
+    .in("id", materialIds)
+    .eq("is_active", true)
+    .eq("review_status", "approved")
+
+  if (materialsError) throw materialsError
+
+  const hydrated = await hydrateMaterials(materials, { includeAuthor: true })
+  const order = new Map(materialIds.map((id, index) => [Number(id), index]))
+  return hydrated.sort((a, b) => (order.get(Number(a.id)) ?? 9999) - (order.get(Number(b.id)) ?? 9999))
 }

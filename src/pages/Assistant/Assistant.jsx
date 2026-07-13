@@ -229,7 +229,7 @@ export default function Assistant() {
             icon={Sparkles}
             items={answer.results.tutors}
             renderItem={(tutor) => (
-              <Link key={tutor.id} to="/dashboard/reputacion" className="group flex items-center justify-between gap-4 rounded-2xl border border-slate-200 p-4 transition hover:border-blue-300 hover:bg-blue-50/60 dark:border-slate-800 dark:hover:border-blue-800 dark:hover:bg-blue-950/20">
+              <Link key={tutor.id} to={`/dashboard/usuarios/${tutor.id}`} className="group flex items-center justify-between gap-4 rounded-2xl border border-slate-200 p-4 transition hover:border-blue-300 hover:bg-blue-50/60 dark:border-slate-800 dark:hover:border-blue-800 dark:hover:bg-blue-950/20">
                 <div className="flex min-w-0 items-center gap-3">
                   <div className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-full bg-slate-100 font-black text-slate-600 dark:bg-slate-800 dark:text-slate-200">
                     {tutor.avatar_url ? <img src={tutor.avatar_url} alt="" className="h-full w-full object-cover" /> : `${tutor.first_name?.[0] || "E"}${tutor.last_name?.[0] || ""}`}

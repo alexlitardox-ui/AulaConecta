@@ -64,7 +64,7 @@ export async function markNotificationAsRead(notificationId) {
     .eq("id", Number(notificationId))
     .eq("user_id", user.id)
     .select()
-    .single()
+    .maybeSingle()
 
   if (error) throw error
 

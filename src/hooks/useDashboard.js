@@ -1,21 +1,16 @@
 import { useCallback, useEffect, useState } from "react"
-import {
-  getDashboardSummary,
-  getRecentRequests,
-} from "../services/dashboardService"
+import { getDashboardStats } from "../services/dashboardService"
 
 const initialSummary = {
-  totalRequests: 0,
-  openRequests: 0,
-  acceptedRequests: 0,
-  applicationsSent: 0,
-  completedTutoring: 0,
-  rating: 5,
+  requests: 0,
+  tutoring: 0,
+  groups: 0,
+  notifications: [],
+  rating: 0,
 }
 
 export function useDashboard() {
   const [summary, setSummary] = useState(initialSummary)
-  const [recentRequests, setRecentRequests] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState("")
 
@@ -24,13 +19,8 @@ export function useDashboard() {
     setError("")
 
     try {
-      const [summaryData, recentData] = await Promise.all([
-        getDashboardSummary(),
-        getRecentRequests(),
-      ])
-
+      const summaryData = await getDashboardStats()
       setSummary(summaryData)
-      setRecentRequests(recentData)
     } catch (loadError) {
       console.error(loadError)
       setError("No se pudo cargar la información del Dashboard.")
@@ -45,7 +35,6 @@ export function useDashboard() {
 
   return {
     summary,
-    recentRequests,
     loading,
     error,
     reload: loadDashboard,

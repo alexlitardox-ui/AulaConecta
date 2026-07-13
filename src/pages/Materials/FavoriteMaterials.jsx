@@ -41,7 +41,7 @@ function FavoriteMaterials() {
     setDownloadingId(material.id)
     setMessage("")
     try {
-      const signedUrl = await getMaterialDownloadUrl(material.file_path)
+      const signedUrl = await getMaterialDownloadUrl(material.file_path, material.id)
       window.location.assign(signedUrl)
     } catch (error) {
       console.error(error)

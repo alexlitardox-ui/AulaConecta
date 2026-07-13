@@ -123,7 +123,7 @@ function Login() {
     setMessage("")
 
     const { error } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: `${window.location.origin}/dashboard/configuracion`,
+      redirectTo: `${window.location.origin}/restablecer-contrasena`,
     })
 
     if (error) {

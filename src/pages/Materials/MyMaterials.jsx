@@ -24,7 +24,7 @@ function MyMaterials() {
 
   async function handleDownload(material) {
     setDownloadingId(material.id)
-    try { window.location.assign(await getMaterialDownloadUrl(material.file_path)) }
+    try { window.location.assign(await getMaterialDownloadUrl(material.file_path, material.id)) }
     catch (error) { console.error(error); setMessage("No se pudo descargar el archivo."); setMessageType("error") }
     finally { setDownloadingId(null) }
   }

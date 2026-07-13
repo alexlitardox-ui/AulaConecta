@@ -22,10 +22,7 @@ function buildLastMonths(count = 6) {
     return {
       key: `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`,
       label: formatter.format(date).replace(".", ""),
-      tutorias: 0,
-      solicitudes: 0,
-      materiales: 0,
-      usuarios: 0,
+      tutorias: 0, solicitudes: 0, materiales: 0, usuarios: 0,
     }
   })
 }
@@ -49,18 +46,29 @@ async function safeCount(query) {
     const result = await query
     if (result.error) return 0
     return result.count ?? 0
-  } catch {
-    return 0
-  }
+  } catch { return 0 }
+}
+
+async function subjectMapFor(rows) {
+  const ids = [...new Set((rows ?? []).map((item) => item.subject_id).filter(Boolean))]
+  if (!ids.length) return new Map()
+  const subjects = await safeQuery(supabase.from("subjects").select("id,name,code").in("id", ids))
+  return new Map(subjects.map((item) => [Number(item.id), item]))
+}
+
+async function careerMapFor(rows) {
+  const ids = [...new Set((rows ?? []).map((item) => item.career_id).filter(Boolean))]
+  if (!ids.length) return new Map()
+  const careers = await safeQuery(supabase.from("careers").select("id,name").in("id", ids))
+  return new Map(careers.map((item) => [Number(item.id), item]))
 }
 
 export async function getUserAnalytics() {
   const user = await getUser()
-
   const [sessionRows, requestRows, materialRows, reviewRows, profileRows, favorites] = await Promise.all([
-    safeQuery(supabase.from("tutoring_sessions").select("id,status,session_date,created_at,student_id,tutor_id,subject:subjects(name,code)").or(`student_id.eq.${user.id},tutor_id.eq.${user.id}`)),
-    safeQuery(supabase.from("tutor_requests").select("id,status,created_at,subject:subjects(name,code)").eq("student_id", user.id)),
-    safeQuery(supabase.from("materials").select("id,review_status,download_count,created_at,subject:subjects(name,code)").eq("user_id", user.id)),
+    safeQuery(supabase.from("tutoring_sessions").select("id,status,session_date,created_at,student_id,tutor_id,subject_id").or(`student_id.eq.${user.id},tutor_id.eq.${user.id}`)),
+    safeQuery(supabase.from("tutor_requests").select("id,status,created_at,subject_id").eq("student_id", user.id)),
+    safeQuery(supabase.from("materials").select("id,review_status,download_count,created_at,subject_id").eq("user_id", user.id)),
     safeQuery(supabase.from("reviews").select("rating,created_at").eq("reviewed_user_id", user.id)),
     safeQuery(supabase.from("profiles").select("rating,is_admin").eq("id", user.id).limit(1)),
     safeCount(supabase.from("material_favorites").select("material_id", { count: "exact", head: true }).eq("user_id", user.id)),
@@ -68,25 +76,16 @@ export async function getUserAnalytics() {
 
   const profile = profileRows[0] ?? {}
   const monthly = buildLastMonths(6)
-  const monthlyMap = new Map(monthly.map(item => [item.key, item]))
+  const monthlyMap = new Map(monthly.map((item) => [item.key, item]))
+  sessionRows.forEach((item) => { const b = monthlyMap.get(monthKey(item.session_date || item.created_at)); if (b) b.tutorias += 1 })
+  requestRows.forEach((item) => { const b = monthlyMap.get(monthKey(item.created_at)); if (b) b.solicitudes += 1 })
+  materialRows.forEach((item) => { const b = monthlyMap.get(monthKey(item.created_at)); if (b) b.materiales += 1 })
 
-  sessionRows.forEach(item => {
-    const bucket = monthlyMap.get(monthKey(item.session_date || item.created_at))
-    if (bucket) bucket.tutorias += 1
-  })
-  requestRows.forEach(item => {
-    const bucket = monthlyMap.get(monthKey(item.created_at))
-    if (bucket) bucket.solicitudes += 1
-  })
-  materialRows.forEach(item => {
-    const bucket = monthlyMap.get(monthKey(item.created_at))
-    if (bucket) bucket.materiales += 1
-  })
-
-  const subjectMap = new Map()
-  ;[...sessionRows, ...requestRows, ...materialRows].forEach(item => {
-    const name = item.subject?.name || "Sin materia"
-    subjectMap.set(name, (subjectMap.get(name) ?? 0) + 1)
+  const subjectMap = await subjectMapFor([...sessionRows, ...requestRows, ...materialRows])
+  const subjectCounts = new Map()
+  ;[...sessionRows, ...requestRows, ...materialRows].forEach((item) => {
+    const name = subjectMap.get(Number(item.subject_id))?.name || "Sin materia"
+    subjectCounts.set(name, (subjectCounts.get(name) ?? 0) + 1)
   })
 
   const averageRating = reviewRows.length
@@ -97,27 +96,25 @@ export async function getUserAnalytics() {
     isAdmin: Boolean(profile.is_admin),
     kpis: {
       sessions: sessionRows.length,
-      completed: sessionRows.filter(item => item.status === "completed").length,
+      completed: sessionRows.filter((item) => item.status === "completed").length,
       materials: materialRows.length,
       downloads: materialRows.reduce((sum, item) => sum + Number(item.download_count || 0), 0),
-      favorites,
-      rating: averageRating,
-      reviews: reviewRows.length,
+      favorites, rating: averageRating, reviews: reviewRows.length,
     },
     monthly,
-    subjects: [...subjectMap.entries()].map(([name, total]) => ({ name, total })).sort((a, b) => b.total - a.total).slice(0, 6),
+    subjects: [...subjectCounts.entries()].map(([name, total]) => ({ name, total })).sort((a, b) => b.total - a.total).slice(0, 6),
     activity: [
       { name: "Tutorías", value: sessionRows.length },
       { name: "Solicitudes", value: requestRows.length },
       { name: "Materiales", value: materialRows.length },
       { name: "Reseñas", value: reviewRows.length },
-    ].filter(item => item.value > 0),
+    ].filter((item) => item.value > 0),
     sessionStatus: [
-      { name: "Programadas", value: sessionRows.filter(item => item.status === "scheduled").length },
-      { name: "En curso", value: sessionRows.filter(item => item.status === "in_progress").length },
-      { name: "Completadas", value: sessionRows.filter(item => item.status === "completed").length },
-      { name: "Canceladas", value: sessionRows.filter(item => ["cancelled", "not_completed"].includes(item.status)).length },
-    ].filter(item => item.value > 0),
+      { name: "Programadas", value: sessionRows.filter((item) => item.status === "scheduled").length },
+      { name: "En curso", value: sessionRows.filter((item) => item.status === "in_progress").length },
+      { name: "Completadas", value: sessionRows.filter((item) => item.status === "completed").length },
+      { name: "Canceladas", value: sessionRows.filter((item) => ["cancelled", "not_completed"].includes(item.status)).length },
+    ].filter((item) => item.value > 0),
   }
 }
 
@@ -127,48 +124,51 @@ export async function getAdminAnalytics() {
   if (!profilesCheck[0]?.is_admin) return null
 
   const [profileRows, requestRows, sessionRows, groupRows, materialRows] = await Promise.all([
-    safeQuery(supabase.from("profiles").select("id,created_at,career:careers(name)")),
-    safeQuery(supabase.from("tutor_requests").select("id,status,created_at,subject:subjects(name)")),
-    safeQuery(supabase.from("tutoring_sessions").select("id,status,created_at,session_date,subject:subjects(name)")),
-    safeQuery(supabase.from("study_groups").select("id,created_at,subject:subjects(name)")),
-    safeQuery(supabase.from("materials").select("id,review_status,download_count,created_at,subject:subjects(name)")),
+    safeQuery(supabase.from("profiles").select("id,created_at,career_id")),
+    safeQuery(supabase.from("tutor_requests").select("id,status,created_at,subject_id")),
+    safeQuery(supabase.from("tutoring_sessions").select("id,status,created_at,session_date,subject_id")),
+    safeQuery(supabase.from("study_groups").select("id,created_at,subject_id")),
+    safeQuery(supabase.from("materials").select("id,review_status,download_count,created_at,subject_id")),
   ])
 
   const monthly = buildLastMonths(6)
-  const monthlyMap = new Map(monthly.map(item => [item.key, item]))
-  profileRows.forEach(item => { const b = monthlyMap.get(monthKey(item.created_at)); if (b) b.usuarios += 1 })
-  requestRows.forEach(item => { const b = monthlyMap.get(monthKey(item.created_at)); if (b) b.solicitudes += 1 })
-  sessionRows.forEach(item => { const b = monthlyMap.get(monthKey(item.session_date || item.created_at)); if (b) b.tutorias += 1 })
-  materialRows.forEach(item => { const b = monthlyMap.get(monthKey(item.created_at)); if (b) b.materiales += 1 })
+  const monthlyMap = new Map(monthly.map((item) => [item.key, item]))
+  profileRows.forEach((item) => { const b = monthlyMap.get(monthKey(item.created_at)); if (b) b.usuarios += 1 })
+  requestRows.forEach((item) => { const b = monthlyMap.get(monthKey(item.created_at)); if (b) b.solicitudes += 1 })
+  sessionRows.forEach((item) => { const b = monthlyMap.get(monthKey(item.session_date || item.created_at)); if (b) b.tutorias += 1 })
+  materialRows.forEach((item) => { const b = monthlyMap.get(monthKey(item.created_at)); if (b) b.materiales += 1 })
 
-  const careerMap = new Map()
-  profileRows.forEach(item => {
-    const name = item.career?.name || "Sin carrera"
-    careerMap.set(name, (careerMap.get(name) ?? 0) + 1)
+  const careers = await careerMapFor(profileRows)
+  const careerCounts = new Map()
+  profileRows.forEach((item) => {
+    const name = careers.get(Number(item.career_id))?.name || "Sin carrera"
+    careerCounts.set(name, (careerCounts.get(name) ?? 0) + 1)
   })
 
-  const subjectMap = new Map()
-  ;[...requestRows, ...sessionRows, ...groupRows, ...materialRows].forEach(item => {
-    const name = item.subject?.name || "Sin materia"
-    subjectMap.set(name, (subjectMap.get(name) ?? 0) + 1)
+  const allSubjectRows = [...requestRows, ...sessionRows, ...groupRows, ...materialRows]
+  const subjects = await subjectMapFor(allSubjectRows)
+  const subjectCounts = new Map()
+  allSubjectRows.forEach((item) => {
+    const name = subjects.get(Number(item.subject_id))?.name || "Sin materia"
+    subjectCounts.set(name, (subjectCounts.get(name) ?? 0) + 1)
   })
 
   return {
     kpis: {
       users: profileRows.length,
       sessions: sessionRows.length,
-      completedSessions: sessionRows.filter(item => item.status === "completed").length,
+      completedSessions: sessionRows.filter((item) => item.status === "completed").length,
       materials: materialRows.length,
-      pendingMaterials: materialRows.filter(item => item.review_status === "pending").length,
+      pendingMaterials: materialRows.filter((item) => item.review_status === "pending").length,
       downloads: materialRows.reduce((sum, item) => sum + Number(item.download_count || 0), 0),
     },
     monthly,
-    careers: [...careerMap.entries()].map(([name, value]) => ({ name, value })).sort((a, b) => b.value - a.value).slice(0, 7),
-    subjects: [...subjectMap.entries()].map(([name, total]) => ({ name, total })).sort((a, b) => b.total - a.total).slice(0, 8),
+    careers: [...careerCounts.entries()].map(([name, value]) => ({ name, value })).sort((a, b) => b.value - a.value).slice(0, 7),
+    subjects: [...subjectCounts.entries()].map(([name, total]) => ({ name, total })).sort((a, b) => b.total - a.total).slice(0, 8),
     materialStatus: [
-      { name: "Aprobados", value: materialRows.filter(item => item.review_status === "approved").length },
-      { name: "Pendientes", value: materialRows.filter(item => item.review_status === "pending").length },
-      { name: "Rechazados", value: materialRows.filter(item => item.review_status === "rejected").length },
-    ].filter(item => item.value > 0),
+      { name: "Aprobados", value: materialRows.filter((item) => item.review_status === "approved").length },
+      { name: "Pendientes", value: materialRows.filter((item) => item.review_status === "pending").length },
+      { name: "Rechazados", value: materialRows.filter((item) => item.review_status === "rejected").length },
+    ].filter((item) => item.value > 0),
   }
 }

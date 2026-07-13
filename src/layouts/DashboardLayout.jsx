@@ -30,6 +30,7 @@ import {
   getUnreadNotificationsCount,
   subscribeToNotifications,
 } from "../services/notificationService"
+import { ensureCurrentProfile } from "../services/profileService"
 import { supabase } from "../services/supabase"
 
 const menuSections = [
@@ -121,6 +122,7 @@ function DashboardLayout() {
 
   const [user, setUser] = useState(null)
   const [avatarUrl, setAvatarUrl] = useState("")
+  const [profileName, setProfileName] = useState({ firstName: "", lastName: "" })
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [loggingOut, setLoggingOut] = useState(false)
   const [unreadNotifications, setUnreadNotifications] = useState(0)
@@ -146,42 +148,21 @@ function DashboardLayout() {
       setUser(currentUser)
 
       let profile = null
-      const profileResult = await supabase
-        .from("profiles")
-        .select("avatar_url, is_admin")
-        .eq("id", currentUser.id)
-        .single()
 
-      if (profileResult.error?.message?.includes("is_admin")) {
-        const fallbackResult = await supabase
-          .from("profiles")
-          .select("avatar_url")
-          .eq("id", currentUser.id)
-          .single()
-
-        profile = fallbackResult.data
-
-        if (fallbackResult.error) {
-          console.error(
-            "No se pudo cargar la fotografía del perfil:",
-            fallbackResult.error,
-          )
-        }
-      } else {
-        profile = profileResult.data
-
-        if (profileResult.error) {
-          console.error(
-            "No se pudo cargar la información del perfil:",
-            profileResult.error,
-          )
-        }
+      try {
+        profile = await ensureCurrentProfile()
+      } catch (profileError) {
+        console.error("No se pudo cargar o completar el perfil:", profileError)
       }
 
       if (mounted) {
         setAvatarUrl(
           profile?.avatar_url || currentUser.user_metadata?.avatar_url || "",
         )
+        setProfileName({
+          firstName: profile?.first_name || currentUser.user_metadata?.first_name || "",
+          lastName: profile?.last_name || currentUser.user_metadata?.last_name || "",
+        })
         setIsAdmin(Boolean(profile?.is_admin))
       }
 
@@ -220,6 +201,7 @@ function DashboardLayout() {
         setAvatarUrl("")
         setUnreadNotifications(0)
         setIsAdmin(false)
+        setProfileName({ firstName: "", lastName: "" })
         return
       }
 
@@ -269,11 +251,12 @@ function DashboardLayout() {
   }
 
   const firstName =
+    profileName.firstName ||
     user?.user_metadata?.first_name ||
     user?.email?.split("@")[0] ||
     "Estudiante"
 
-  const lastName = user?.user_metadata?.last_name || ""
+  const lastName = profileName.lastName || user?.user_metadata?.last_name || ""
 
   const fullName = `${firstName} ${lastName}`.trim()
 

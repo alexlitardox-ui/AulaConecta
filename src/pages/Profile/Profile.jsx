@@ -16,6 +16,7 @@ import {
 import { Link, useOutletContext } from "react-router-dom"
 
 import { uploadAvatar } from "../../services/avatarService"
+import { ensureCurrentProfile } from "../../services/profileService"
 import { getMyReviews } from "../../services/reputationService"
 import { supabase } from "../../services/supabase"
 
@@ -51,20 +52,7 @@ function Profile() {
 
       const [profileResult, careersResult, semestersResult, reviewsResult] =
         await Promise.allSettled([
-          supabase
-            .from("profiles")
-            .select(
-              `
-                first_name,
-                last_name,
-                career_id,
-                semester_id,
-                bio,
-                avatar_url
-              `,
-            )
-            .eq("id", user.id)
-            .single(),
+          ensureCurrentProfile(),
           supabase
             .from("careers")
             .select("id, name")
@@ -80,12 +68,12 @@ function Profile() {
 
       if (
         profileResult.status === "rejected" ||
-        profileResult.value.error
+        profileResult.value?.error
       ) {
         console.error(
           profileResult.status === "rejected"
             ? profileResult.reason
-            : profileResult.value.error,
+            : profileResult.value?.error,
         )
         setMessage("No se pudo cargar el perfil.")
         setMessageType("error")
@@ -93,7 +81,7 @@ function Profile() {
         return
       }
 
-      const profile = profileResult.value.data
+      const profile = profileResult.value?.data ?? profileResult.value
       const careersData =
         careersResult.status === "fulfilled" && !careersResult.value.error
           ? careersResult.value.data ?? []
@@ -397,7 +385,7 @@ function Profile() {
               </div>
 
               <Link
-                to="/dashboard/reputation"
+                to="/dashboard/reputacion"
                 className="mt-6 flex w-full items-center justify-center gap-2 rounded-xl bg-slate-900 px-4 py-3 text-sm font-semibold text-white transition hover:bg-slate-800"
               >
                 <Star size={18} /> Ver reputación completa
