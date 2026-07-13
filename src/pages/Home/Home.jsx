@@ -8,15 +8,17 @@ import Footer from "../../components/Footer/Footer"
 
 function Home() {
   return (
-    <>
+    <div className="min-h-screen bg-white">
       <Navbar />
-      <Hero />
-      <Subjects />
-      <HowItWorks />
-      <Stats />
-      <CTA />
+      <main>
+        <Hero />
+        <Subjects />
+        <HowItWorks />
+        <Stats />
+        <CTA />
+      </main>
       <Footer />
-    </>
+    </div>
   )
 }
 

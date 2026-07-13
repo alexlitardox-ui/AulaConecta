@@ -1,0 +1,594 @@
+import { useEffect, useMemo, useState } from "react"
+import { NavLink, Outlet, useNavigate } from "react-router-dom"
+import {
+  BarChart3,
+  Bot,
+  Bell,
+  BookOpen,
+  CalendarDays,
+  ChevronRight,
+  FileText,
+  GraduationCap,
+  Heart,
+  Home,
+  LogOut,
+  Menu,
+  MessageCircle,
+  Settings,
+  ShieldCheck,
+  Sparkles,
+  Star,
+  Trophy,
+  User,
+  Users,
+  X,
+} from "lucide-react"
+
+import GlobalSearch from "../components/Search/GlobalSearch"
+import ThemeToggle from "../components/Theme/ThemeToggle"
+import {
+  getUnreadNotificationsCount,
+  subscribeToNotifications,
+} from "../services/notificationService"
+import { supabase } from "../services/supabase"
+
+const menuSections = [
+  {
+    title: "Principal",
+    items: [
+      {
+        label: "Inicio",
+        path: "/dashboard",
+        icon: Home,
+        end: true,
+      },
+      {
+        label: "Mi perfil",
+        path: "/dashboard/perfil",
+        icon: User,
+      },
+      {
+        label: "Tutorías",
+        path: "/dashboard/tutorias",
+        icon: GraduationCap,
+      },
+      {
+        label: "Calendario",
+        path: "/dashboard/calendario",
+        icon: CalendarDays,
+      },
+      {
+        label: "Solicitudes",
+        path: "/dashboard/solicitudes",
+        icon: BookOpen,
+      },
+    ],
+  },
+  {
+    title: "Comunidad",
+    items: [
+      {
+        label: "Grupos de estudio",
+        path: "/dashboard/grupos",
+        icon: Users,
+      },
+      {
+        label: "Materiales",
+        path: "/dashboard/materiales",
+        icon: FileText,
+      },
+      {
+        label: "Favoritos",
+        path: "/dashboard/materiales/favoritos",
+        icon: Heart,
+      },
+      {
+        label: "Mensajes",
+        path: "/dashboard/chat",
+        icon: MessageCircle,
+      },
+      {
+        label: "Mi reputación",
+        path: "/dashboard/reputacion",
+        icon: Star,
+      },
+      {
+        label: "Logros y ranking",
+        path: "/dashboard/logros",
+        icon: Trophy,
+      },
+      {
+        label: "Centro analítico",
+        path: "/dashboard/analiticas",
+        icon: BarChart3,
+      },
+      {
+        label: "AulaConecta AI",
+        path: "/dashboard/asistente",
+        icon: Bot,
+      },
+      {
+        label: "Notificaciones",
+        path: "/dashboard/notificaciones",
+        icon: Bell,
+      },
+    ],
+  },
+]
+
+function DashboardLayout() {
+  const navigate = useNavigate()
+
+  const [user, setUser] = useState(null)
+  const [avatarUrl, setAvatarUrl] = useState("")
+  const [sidebarOpen, setSidebarOpen] = useState(false)
+  const [loggingOut, setLoggingOut] = useState(false)
+  const [unreadNotifications, setUnreadNotifications] = useState(0)
+  const [isAdmin, setIsAdmin] = useState(false)
+
+  useEffect(() => {
+    let unsubscribeNotifications = () => {}
+    let mounted = true
+
+    async function loadLayoutData() {
+      const {
+        data: { user: currentUser },
+        error: userError,
+      } = await supabase.auth.getUser()
+
+      if (userError) {
+        console.error("No se pudo cargar el usuario:", userError)
+        return
+      }
+
+      if (!currentUser || !mounted) return
+
+      setUser(currentUser)
+
+      let profile = null
+      const profileResult = await supabase
+        .from("profiles")
+        .select("avatar_url, is_admin")
+        .eq("id", currentUser.id)
+        .single()
+
+      if (profileResult.error?.message?.includes("is_admin")) {
+        const fallbackResult = await supabase
+          .from("profiles")
+          .select("avatar_url")
+          .eq("id", currentUser.id)
+          .single()
+
+        profile = fallbackResult.data
+
+        if (fallbackResult.error) {
+          console.error(
+            "No se pudo cargar la fotografía del perfil:",
+            fallbackResult.error,
+          )
+        }
+      } else {
+        profile = profileResult.data
+
+        if (profileResult.error) {
+          console.error(
+            "No se pudo cargar la información del perfil:",
+            profileResult.error,
+          )
+        }
+      }
+
+      if (mounted) {
+        setAvatarUrl(
+          profile?.avatar_url || currentUser.user_metadata?.avatar_url || "",
+        )
+        setIsAdmin(Boolean(profile?.is_admin))
+      }
+
+      async function loadUnreadCount() {
+        try {
+          const count = await getUnreadNotificationsCount()
+
+          if (mounted) setUnreadNotifications(count)
+        } catch (countError) {
+          console.error(
+            "No se pudo cargar el número de notificaciones:",
+            countError,
+          )
+        }
+      }
+
+      await loadUnreadCount()
+
+      unsubscribeNotifications = subscribeToNotifications(
+        currentUser.id,
+        loadUnreadCount,
+      )
+    }
+
+    loadLayoutData()
+
+    const {
+      data: { subscription: authSubscription },
+    } = supabase.auth.onAuthStateChange(async (_event, currentSession) => {
+      if (!mounted) return
+
+      const currentUser = currentSession?.user ?? null
+      setUser(currentUser)
+
+      if (!currentUser) {
+        setAvatarUrl("")
+        setUnreadNotifications(0)
+        setIsAdmin(false)
+        return
+      }
+
+      const metadataAvatar = currentUser.user_metadata?.avatar_url || ""
+
+      if (metadataAvatar) setAvatarUrl(metadataAvatar)
+    })
+
+    return () => {
+      mounted = false
+      unsubscribeNotifications()
+      authSubscription.unsubscribe()
+    }
+  }, [])
+
+
+  const visibleMenuSections = useMemo(() => {
+    if (!isAdmin) return menuSections
+
+    return [
+      ...menuSections,
+      {
+        title: "Administración",
+        items: [
+          {
+            label: "Panel administrativo",
+            path: "/dashboard/administracion",
+            icon: ShieldCheck,
+          },
+        ],
+      },
+    ]
+  }, [isAdmin])
+
+  async function handleLogout() {
+    setLoggingOut(true)
+
+    const { error } = await supabase.auth.signOut()
+
+    if (error) {
+      console.error("No se pudo cerrar la sesión:", error)
+      setLoggingOut(false)
+      return
+    }
+
+    navigate("/login", { replace: true })
+  }
+
+  const firstName =
+    user?.user_metadata?.first_name ||
+    user?.email?.split("@")[0] ||
+    "Estudiante"
+
+  const lastName = user?.user_metadata?.last_name || ""
+
+  const fullName = `${firstName} ${lastName}`.trim()
+
+  const initials =
+    `${firstName.charAt(0)}${lastName.charAt(0)}`.trim().toUpperCase() ||
+    firstName.slice(0, 2).toUpperCase()
+
+  const greeting = useMemo(() => {
+    const hour = new Date().getHours()
+
+    if (hour < 12) return "Buenos días"
+    if (hour < 19) return "Buenas tardes"
+    return "Buenas noches"
+  }, [])
+
+  return (
+    <div className="min-h-screen bg-slate-50 text-slate-900">
+      {sidebarOpen && (
+        <button
+          type="button"
+          aria-label="Cerrar menú"
+          onClick={() => setSidebarOpen(false)}
+          className="fixed inset-0 z-40 bg-slate-950/60 backdrop-blur-sm lg:hidden"
+        />
+      )}
+
+      <aside
+        className={`fixed inset-y-0 left-0 z-50 flex w-72 flex-col overflow-hidden border-r border-white/10 bg-slate-950 text-white shadow-2xl shadow-slate-950/20 transition-transform duration-300 lg:translate-x-0 ${
+          sidebarOpen ? "translate-x-0" : "-translate-x-full"
+        }`}
+      >
+        <div className="pointer-events-none absolute inset-x-0 top-0 h-64 bg-gradient-to-b from-blue-600/25 via-indigo-500/10 to-transparent" />
+        <div className="pointer-events-none absolute -left-24 top-36 h-52 w-52 rounded-full bg-blue-500/10 blur-3xl" />
+
+        <div className="relative flex min-h-24 items-center justify-between border-b border-white/10 px-5">
+          <NavLink
+            to="/dashboard"
+            onClick={() => setSidebarOpen(false)}
+            className="group flex min-w-0 items-center gap-3"
+          >
+            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-blue-500 to-indigo-600 shadow-lg shadow-blue-950/50 transition duration-300 group-hover:scale-105 group-hover:rotate-2">
+              <GraduationCap size={26} />
+            </div>
+
+            <div className="min-w-0">
+              <h1 className="truncate text-xl font-black tracking-tight">
+                AulaConecta
+              </h1>
+              <p className="mt-0.5 text-xs font-medium text-slate-400">
+                Aprende · Comparte · Crece
+              </p>
+            </div>
+          </NavLink>
+
+          <button
+            type="button"
+            aria-label="Cerrar menú lateral"
+            onClick={() => setSidebarOpen(false)}
+            className="rounded-xl p-2 text-slate-400 transition hover:bg-white/10 hover:text-white lg:hidden"
+          >
+            <X size={22} />
+          </button>
+        </div>
+
+        <nav className="relative flex-1 overflow-y-auto px-4 py-5">
+          <div className="mb-5 rounded-2xl border border-blue-400/15 bg-blue-500/10 p-3.5">
+            <div className="flex items-start gap-3">
+              <div className="mt-0.5 rounded-xl bg-blue-500/15 p-2 text-blue-300">
+                <Sparkles size={18} />
+              </div>
+              <div>
+                <p className="text-sm font-semibold text-white">
+                  Tu espacio académico
+                </p>
+                <p className="mt-1 text-xs leading-5 text-slate-400">
+                  Conecta con estudiantes y avanza en tus materias.
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <div className="space-y-6">
+            {visibleMenuSections.map((section) => (
+              <section key={section.title}>
+                <p className="mb-2 px-3 text-[11px] font-bold uppercase tracking-[0.18em] text-slate-500">
+                  {section.title}
+                </p>
+
+                <div className="space-y-1.5">
+                  {section.items.map((item) => {
+                    const Icon = item.icon
+                    const isNotifications =
+                      item.path === "/dashboard/notificaciones"
+
+                    return (
+                      <NavLink
+                        key={item.path}
+                        to={item.path}
+                        end={item.end}
+                        onClick={() => setSidebarOpen(false)}
+                        className={({ isActive }) =>
+                          `group relative flex w-full items-center gap-3 overflow-hidden rounded-xl px-3.5 py-3 text-sm font-semibold transition duration-200 ${
+                            isActive
+                              ? "bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-lg shadow-blue-950/30"
+                              : "text-slate-300 hover:bg-white/[0.07] hover:text-white"
+                          }`
+                        }
+                      >
+                        {({ isActive }) => (
+                          <>
+                            <span
+                              className={`absolute inset-y-2 left-0 w-1 rounded-r-full transition ${
+                                isActive ? "bg-white" : "bg-transparent"
+                              }`}
+                            />
+
+                            <Icon
+                              size={19}
+                              className={`shrink-0 transition duration-200 ${
+                                isActive
+                                  ? "text-white"
+                                  : "text-slate-400 group-hover:text-blue-300"
+                              }`}
+                            />
+
+                            <span className="flex-1 truncate text-left">
+                              {item.label}
+                            </span>
+
+                            {isNotifications && unreadNotifications > 0 ? (
+                              <span className="flex min-w-6 items-center justify-center rounded-full bg-red-500 px-2 py-0.5 text-[11px] font-extrabold text-white ring-2 ring-white/10">
+                                {unreadNotifications > 99
+                                  ? "99+"
+                                  : unreadNotifications}
+                              </span>
+                            ) : (
+                              <ChevronRight
+                                size={16}
+                                className={`transition duration-200 ${
+                                  isActive
+                                    ? "translate-x-0 opacity-90"
+                                    : "-translate-x-1 opacity-0 group-hover:translate-x-0 group-hover:opacity-70"
+                                }`}
+                              />
+                            )}
+                          </>
+                        )}
+                      </NavLink>
+                    )
+                  })}
+                </div>
+              </section>
+            ))}
+          </div>
+        </nav>
+
+        <div className="relative border-t border-white/10 bg-slate-950/80 p-4 backdrop-blur">
+          <NavLink
+            to="/dashboard/perfil"
+            onClick={() => setSidebarOpen(false)}
+            className="mb-3 flex items-center gap-3 rounded-2xl border border-white/10 bg-white/[0.05] p-3 transition hover:border-blue-400/30 hover:bg-white/[0.08]"
+          >
+            <div className="h-11 w-11 shrink-0 overflow-hidden rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 shadow-md shadow-slate-950/40">
+              {avatarUrl ? (
+                <img
+                  src={avatarUrl}
+                  alt={`Fotografía de ${firstName}`}
+                  className="h-full w-full object-cover"
+                  onError={() => setAvatarUrl("")}
+                />
+              ) : (
+                <div className="flex h-full w-full items-center justify-center text-sm font-black text-white">
+                  {initials}
+                </div>
+              )}
+            </div>
+
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-sm font-bold text-white">
+                {fullName}
+              </p>
+              <p className="mt-0.5 truncate text-xs text-slate-400">
+                {user?.email || "Cargando..."}
+              </p>
+            </div>
+
+            <ChevronRight size={17} className="shrink-0 text-slate-500" />
+          </NavLink>
+
+          <div className="grid grid-cols-2 gap-2">
+            <NavLink
+              to="/dashboard/configuracion"
+              onClick={() => setSidebarOpen(false)}
+              className={({ isActive }) =>
+                `flex items-center justify-center gap-2 rounded-xl px-3 py-2.5 text-xs font-semibold transition ${
+                  isActive
+                    ? "bg-blue-600 text-white"
+                    : "bg-white/[0.05] text-slate-300 hover:bg-white/10 hover:text-white"
+                }`
+              }
+            >
+              <Settings size={17} />
+              Ajustes
+            </NavLink>
+
+            <button
+              type="button"
+              onClick={handleLogout}
+              disabled={loggingOut}
+              className="flex items-center justify-center gap-2 rounded-xl bg-red-500/10 px-3 py-2.5 text-xs font-semibold text-red-300 transition hover:bg-red-500/20 hover:text-red-200 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              <LogOut size={17} />
+              {loggingOut ? "Saliendo..." : "Salir"}
+            </button>
+          </div>
+        </div>
+      </aside>
+
+      <div className="min-h-screen lg:pl-72">
+        <header className="sticky top-0 z-30 border-b border-slate-200/80 bg-white/90 backdrop-blur-xl">
+          <div className="flex min-h-20 items-center gap-4 px-4 sm:px-6 lg:px-8">
+            <button
+              type="button"
+              aria-label="Abrir menú lateral"
+              onClick={() => setSidebarOpen(true)}
+              className="rounded-xl border border-slate-200 bg-white p-2.5 text-slate-700 shadow-sm transition hover:border-blue-200 hover:bg-blue-50 hover:text-blue-700 lg:hidden"
+            >
+              <Menu size={22} />
+            </button>
+
+            <div className="hidden min-w-44 xl:block">
+              <p className="text-sm font-bold text-slate-900">
+                {greeting}, {firstName} 👋
+              </p>
+              <p className="mt-0.5 text-xs text-slate-500">
+                Bienvenido nuevamente
+              </p>
+            </div>
+
+            <div className="hidden max-w-2xl flex-1 md:block">
+              <GlobalSearch />
+            </div>
+
+            <div className="ml-auto flex items-center gap-2 sm:gap-3">
+              <ThemeToggle compact />
+
+              <NavLink
+                to="/dashboard/notificaciones"
+                aria-label={`${unreadNotifications} notificaciones sin leer`}
+                className="relative rounded-xl border border-slate-200 bg-white p-2.5 text-slate-600 shadow-sm transition hover:border-blue-200 hover:bg-blue-50 hover:text-blue-700"
+              >
+                <Bell size={21} />
+
+                {unreadNotifications > 0 && (
+                  <span className="absolute -right-2 -top-2 flex min-h-5 min-w-5 items-center justify-center rounded-full bg-red-500 px-1.5 text-[10px] font-extrabold text-white ring-2 ring-white">
+                    {unreadNotifications > 99 ? "99+" : unreadNotifications}
+                  </span>
+                )}
+              </NavLink>
+
+              <NavLink
+                to="/dashboard/perfil"
+                className="group flex items-center gap-3 rounded-2xl border border-slate-200 bg-white p-1.5 pr-2.5 shadow-sm transition hover:border-blue-200 hover:shadow-md"
+              >
+                <div className="h-10 w-10 shrink-0 overflow-hidden rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600">
+                  {avatarUrl ? (
+                    <img
+                      src={avatarUrl}
+                      alt={`Fotografía de ${firstName}`}
+                      className="h-full w-full object-cover"
+                      onError={() => setAvatarUrl("")}
+                    />
+                  ) : (
+                    <div className="flex h-full w-full items-center justify-center text-sm font-black text-white">
+                      {initials}
+                    </div>
+                  )}
+                </div>
+
+                <div className="hidden min-w-0 text-left sm:block">
+                  <p className="max-w-36 truncate text-sm font-bold text-slate-900">
+                    {fullName}
+                  </p>
+                  <p className="max-w-36 truncate text-xs text-slate-500">
+                    Estudiante
+                  </p>
+                </div>
+
+                <ChevronRight
+                  size={16}
+                  className="hidden text-slate-400 transition group-hover:translate-x-0.5 group-hover:text-blue-600 sm:block"
+                />
+              </NavLink>
+            </div>
+          </div>
+
+          <div className="border-t border-slate-100 px-4 py-3 md:hidden">
+            <GlobalSearch />
+          </div>
+        </header>
+
+        <main className="min-h-[calc(100vh-5rem)]">
+          <Outlet
+            context={{
+              user,
+              firstName,
+              avatarUrl,
+              setAvatarUrl,
+              unreadNotifications,
+            }}
+          />
+        </main>
+      </div>
+    </div>
+  )
+}
+
+export default DashboardLayout

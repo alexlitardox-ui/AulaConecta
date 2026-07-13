@@ -1,28 +1,23 @@
+import { Link } from "react-router-dom"
+import { ArrowRight, GraduationCap } from "lucide-react"
+
 function CTA() {
   return (
-    <section className="bg-white px-6 py-24">
-      <div className="mx-auto max-w-6xl overflow-hidden rounded-3xl bg-gradient-to-r from-blue-600 to-indigo-600 px-8 py-16 text-center text-white shadow-2xl shadow-blue-500/20 md:px-16">
-        <span className="inline-flex rounded-full border border-white/20 bg-white/10 px-4 py-2 text-sm font-semibold">
-          Empieza hoy
-        </span>
-
-        <h2 className="mx-auto mt-6 max-w-3xl text-4xl font-bold leading-tight md:text-5xl">
-          Conecta, aprende y comparte conocimientos con otros estudiantes
-        </h2>
-
-        <p className="mx-auto mt-5 max-w-2xl text-lg leading-8 text-blue-100">
-          Crea tu cuenta, encuentra apoyo académico y participa en una
-          comunidad universitaria segura y colaborativa.
-        </p>
-
-        <div className="mt-8 flex flex-col justify-center gap-4 sm:flex-row">
-          <button className="rounded-xl bg-white px-6 py-3 font-semibold text-blue-700 transition hover:-translate-y-0.5 hover:bg-blue-50">
-            Crear cuenta
-          </button>
-
-          <button className="rounded-xl border border-white/30 bg-white/10 px-6 py-3 font-semibold text-white transition hover:bg-white/20">
-            Conocer más
-          </button>
+    <section className="bg-white px-5 py-24 sm:px-6 lg:px-8">
+      <div className="relative mx-auto max-w-6xl overflow-hidden rounded-[2.25rem] bg-gradient-to-br from-blue-600 via-blue-700 to-indigo-800 px-7 py-16 text-center text-white shadow-2xl shadow-blue-600/25 sm:px-12 lg:px-20">
+        <div className="absolute -left-16 -top-16 h-64 w-64 rounded-full bg-white/10 blur-2xl" />
+        <div className="absolute -bottom-20 -right-12 h-72 w-72 rounded-full bg-indigo-300/20 blur-2xl" />
+        <div className="relative">
+          <span className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl border border-white/20 bg-white/10"><GraduationCap size={32} /></span>
+          <h2 className="mx-auto mt-7 max-w-3xl text-3xl font-black leading-tight tracking-tight sm:text-5xl">Tu próxima conexión académica puede empezar hoy</h2>
+          <p className="mx-auto mt-5 max-w-2xl text-lg leading-8 text-blue-100">Crea tu cuenta, completa tu perfil y empieza a colaborar con otros estudiantes dentro de AulaConecta.</p>
+          <div className="mt-9 flex flex-col justify-center gap-4 sm:flex-row">
+            <Link to="/registro" className="inline-flex items-center justify-center gap-2 rounded-2xl bg-white px-6 py-4 font-black text-blue-700 transition hover:-translate-y-1 hover:bg-blue-50">
+              Crear cuenta
+              <ArrowRight size={19} />
+            </Link>
+            <Link to="/login" className="rounded-2xl border border-white/25 bg-white/10 px-6 py-4 font-black text-white transition hover:bg-white/20">Iniciar sesión</Link>
+          </div>
         </div>
       </div>
     </section>
