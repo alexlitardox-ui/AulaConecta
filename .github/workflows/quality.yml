@@ -40,6 +40,20 @@ jobs:
           npm config set fetch-retry-mintimeout 20000
           npm config set fetch-retry-maxtimeout 120000
 
+      - name: Verificar variables requeridas
+        shell: bash
+        run: |
+          if [ -z "$VITE_SUPABASE_URL" ]; then
+            echo "Falta el secreto VITE_SUPABASE_URL"
+            exit 1
+          fi
+
+          if [ -z "$VITE_SUPABASE_PUBLISHABLE_KEY" ]; then
+            echo "Falta el secreto VITE_SUPABASE_PUBLISHABLE_KEY"
+            exit 1
+          fi
+
+          echo "Variables de Supabase configuradas correctamente"
       - name: Instalar dependencias
         run: npm ci
 
