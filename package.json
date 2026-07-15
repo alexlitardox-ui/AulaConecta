@@ -10,7 +10,14 @@
     "preview": "vite preview",
     "check": "npm run build && oxlint src && npm run verify:contract && npm run verify:stability",
     "verify:contract": "node scripts/verify-contract.mjs",
-    "verify:stability": "node scripts/verify-stability.mjs"
+    "verify:stability": "node scripts/verify-stability.mjs",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:e2e": "npm run build && playwright test",
+    "check:all": "npm run check && npm run test && npm run test:smoke && npm audit --omit=dev",
+    "test:smoke": "npm run build && node scripts/smoke-http.mjs",
+    "check:e2e": "npm run test:e2e",
+    "ci": "npm run check:all && npm run check:e2e"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.110.2",
@@ -22,11 +29,16 @@
     "tailwindcss": "^4.3.2"
   },
   "devDependencies": {
+    "@playwright/test": "^1.61.1",
+    "@testing-library/jest-dom": "^6.9.1",
+    "@testing-library/react": "^16.3.2",
     "@types/react": "^19.2.17",
     "@types/react-dom": "^19.2.3",
     "@vitejs/plugin-react": "^6.0.3",
+    "jsdom": "^29.1.1",
     "oxlint": "^1.71.0",
-    "vite": "^8.1.1"
+    "vite": "^8.1.1",
+    "vitest": "^4.1.10"
   },
   "engines": {
     "node": ">=20 <23"

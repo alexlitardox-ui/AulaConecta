@@ -1,0 +1,61 @@
+name: Calidad AulaConecta
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: quality-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  quality:
+    name: Compilación, lint y pruebas
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Descargar repositorio
+        uses: actions/checkout@v4
+
+      - name: Configurar Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Instalar dependencias
+        run: npm ci
+
+      - name: Ejecutar controles obligatorios
+        run: npm run check:all
+
+      - name: Instalar Chromium de Playwright
+        shell: bash
+        run: |
+          for intento in 1 2 3; do
+            npx playwright install --with-deps chromium && exit 0
+            echo "La descarga falló en el intento ${intento}; se reintentará..."
+            sleep $((intento * 10))
+          done
+          exit 1
+
+      - name: Ejecutar pruebas E2E
+        run: npm run check:e2e
+
+      - name: Guardar reporte de Playwright
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: |
+            playwright-report/
+            test-results/
+          if-no-files-found: ignore
+          retention-days: 7
