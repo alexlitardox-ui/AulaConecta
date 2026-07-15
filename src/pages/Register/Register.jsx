@@ -186,7 +186,7 @@ function Register() {
           career_id: Number(careerId),
           semester_id: Number(semesterId),
         },
-        emailRedirectTo: `${window.location.origin}/login`,
+        emailRedirectTo: `${window.location.origin}/cuenta-confirmada`,
       },
     })
 

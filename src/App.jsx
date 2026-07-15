@@ -12,6 +12,7 @@ const Home = lazy(() => import("./pages/Home/Home"))
 const Login = lazy(() => import("./pages/Login/Login"))
 const Register = lazy(() => import("./pages/Register/Register"))
 const ResetPassword = lazy(() => import("./pages/ResetPassword/ResetPassword"))
+const AccountConfirmed = lazy(() => import("./pages/AccountConfirmed/AccountConfirmed"))
 const NotFound = lazy(() => import("./pages/NotFound/NotFound"))
 
 const Dashboard = lazy(() => import("./pages/Dashboard/Dashboard"))
@@ -50,6 +51,7 @@ function App() {
             <Route path="/login" element={<Login />} />
             <Route path="/registro" element={<Register />} />
             <Route path="/restablecer-contrasena" element={<ResetPassword />} />
+            <Route path="/cuenta-confirmada" element={<AccountConfirmed />} />
 
             <Route
               path="/dashboard"

@@ -17,14 +17,14 @@ export async function ensureCurrentProfile() {
 
   let { data: existingProfile, error: readError } = await supabase
     .from("profiles")
-    .select("id, first_name, last_name, avatar_url, career_id, semester_id, bio, is_admin")
+    .select("id, first_name, last_name, avatar_url, career_id, semester_id, bio, is_admin, role")
     .eq("id", user.id)
     .maybeSingle()
 
   if (readError?.message?.includes("is_admin")) {
     const fallback = await supabase
       .from("profiles")
-      .select("id, first_name, last_name, avatar_url, career_id, semester_id, bio")
+      .select("id, first_name, last_name, avatar_url, career_id, semester_id, bio, role")
       .eq("id", user.id)
       .maybeSingle()
     existingProfile = fallback.data

@@ -163,7 +163,7 @@ function DashboardLayout() {
           firstName: profile?.first_name || currentUser.user_metadata?.first_name || "",
           lastName: profile?.last_name || currentUser.user_metadata?.last_name || "",
         })
-        setIsAdmin(Boolean(profile?.is_admin))
+        setIsAdmin(Boolean(profile?.is_admin || profile?.role === "admin" || profile?.role === "moderator"))
       }
 
       async function loadUnreadCount() {

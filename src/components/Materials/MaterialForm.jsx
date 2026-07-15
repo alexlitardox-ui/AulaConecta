@@ -62,7 +62,7 @@ function MaterialForm({ onCreated }) {
               <label htmlFor="materialFile" onDragOver={(event) => event.preventDefault()} onDrop={handleDrop} className="flex cursor-pointer flex-col items-center justify-center rounded-3xl border-2 border-dashed border-slate-300 bg-slate-50 px-6 py-12 text-center transition hover:border-emerald-400 hover:bg-emerald-50">
                 <span className="grid h-14 w-14 place-items-center rounded-2xl bg-emerald-100 text-emerald-700"><UploadCloud size={28} /></span>
                 <span className="mt-4 font-bold text-slate-900">Haz clic o arrastra un archivo aquí</span>
-                <span className="mt-2 text-sm text-slate-500">PDF, Word, PowerPoint, JPG o PNG. Máximo 6 MB.</span>
+                <span className="mt-2 text-sm text-slate-500">PDF, Word, PowerPoint, Excel, JPG o PNG. Máximo 6 MB.</span>
               </label>
             ) : (
               <div className="flex flex-col gap-4 rounded-3xl border border-emerald-200 bg-emerald-50 p-5 sm:flex-row sm:items-center sm:justify-between">
@@ -70,7 +70,7 @@ function MaterialForm({ onCreated }) {
                 <button type="button" onClick={removeFile} className="inline-flex items-center justify-center gap-2 rounded-xl border border-red-200 bg-white px-4 py-2 text-sm font-bold text-red-600 transition hover:bg-red-50"><Trash2 size={16} /> Quitar</button>
               </div>
             )}
-            <input ref={inputRef} id="materialFile" type="file" onChange={handleFileChange} accept=".pdf,.doc,.docx,.ppt,.pptx,.jpg,.jpeg,.png" className="hidden" />
+            <input ref={inputRef} id="materialFile" type="file" onChange={handleFileChange} accept=".pdf,.doc,.docx,.ppt,.pptx,.xls,.xlsx,.jpg,.jpeg,.png" className="hidden" />
           </div>
         </div>
         <div className="mt-8 flex flex-col gap-3 border-t border-slate-100 pt-6 sm:flex-row sm:items-center sm:justify-between"><p className="text-xs text-slate-500">El material quedará sujeto al flujo de revisión existente.</p><button type="submit" disabled={submitting || loadingSubjects} className="inline-flex items-center justify-center gap-2 rounded-2xl bg-emerald-600 px-6 py-3 text-sm font-bold text-white shadow-lg shadow-emerald-200 transition hover:-translate-y-0.5 hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-60"><Save size={18} />{submitting ? "Subiendo material..." : "Publicar material"}</button></div>

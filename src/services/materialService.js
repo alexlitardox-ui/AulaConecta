@@ -3,6 +3,8 @@ import { supabase } from "./supabase"
 const BUCKET_NAME = "materials"
 const MAX_FILE_SIZE = 6 * 1024 * 1024
 
+const ALLOWED_EXTENSIONS = new Set(["pdf", "doc", "docx", "ppt", "pptx", "xls", "xlsx", "jpg", "jpeg", "png"])
+
 const ALLOWED_MIME_TYPES = [
   "application/pdf",
   "application/msword",
@@ -11,6 +13,8 @@ const ALLOWED_MIME_TYPES = [
   "application/vnd.openxmlformats-officedocument.presentationml.presentation",
   "image/jpeg",
   "image/png",
+  "application/vnd.ms-excel",
+  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
 ]
 
 async function getAuthenticatedUser() {
@@ -42,9 +46,10 @@ export function validateMaterialFile(file) {
     throw new Error("El archivo no puede superar los 6 MB.")
   }
 
-  if (!ALLOWED_MIME_TYPES.includes(file.type)) {
+  const extension = file.name.split(".").pop()?.toLowerCase() ?? ""
+  if (!ALLOWED_EXTENSIONS.has(extension) || !ALLOWED_MIME_TYPES.includes(file.type)) {
     throw new Error(
-      "Formato no permitido. Utiliza PDF, Word, PowerPoint, JPG o PNG.",
+      "Formato no permitido. Utiliza PDF, Word, PowerPoint, Excel, JPG o PNG.",
     )
   }
 }
