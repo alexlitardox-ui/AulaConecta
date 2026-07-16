@@ -3,6 +3,9 @@ import { Link, useNavigate } from "react-router-dom"
 
 import GroupForm from "../../components/Groups/GroupForm"
 
+import ModuleTabs from "../../components/Navigation/ModuleTabs"
+import { groupTabs } from "../../components/Navigation/moduleTabsConfig"
+
 function NewGroup() {
   const navigate = useNavigate()
 
@@ -15,6 +18,7 @@ function NewGroup() {
   return (
     <main className="px-5 py-8 sm:px-8">
       <div className="mx-auto max-w-6xl">
+        <ModuleTabs label="Navegación de grupos de estudio" items={groupTabs} />
         <Link
           to="/dashboard/grupos"
           className="inline-flex items-center gap-2 text-sm font-semibold text-blue-600 hover:text-blue-700"

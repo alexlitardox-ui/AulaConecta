@@ -11,6 +11,7 @@ import {
   User,
   Users,
   Video,
+  Trash2,
 } from "lucide-react"
 
 function formatDate(date) {
@@ -27,7 +28,7 @@ function formatTime(time) {
   return time?.slice(0, 5) || "--:--"
 }
 
-function GroupCard({ group, onJoin, joining = false, showJoinButton = true }) {
+function GroupCard({ group, onJoin, joining = false, showJoinButton = true, onDelete, deleting = false, showDelete = false }) {
   const creatorName = group.creator
     ? `${group.creator.first_name} ${group.creator.last_name}`
     : "Estudiante"
@@ -95,6 +96,18 @@ function GroupCard({ group, onJoin, joining = false, showJoinButton = true }) {
         </div>
 
         {!group.isCreator && <div className="mt-4 flex justify-end"><ReportButton entityType="group" entityId={group.id} /></div>}
+
+        {showDelete && group.isCreator && (
+          <button
+            type="button"
+            onClick={() => onDelete?.(group)}
+            disabled={deleting}
+            className="mt-5 inline-flex w-full items-center justify-center gap-2 rounded-2xl border border-red-200 bg-red-50 px-5 py-3.5 font-bold text-red-700 transition hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            <Trash2 size={18} />
+            {deleting ? "Eliminando grupo..." : "Eliminar grupo"}
+          </button>
+        )}
 
         {group.isCreator ? (
           <StatusBox icon={Crown} className="border-amber-200 bg-amber-50 text-amber-700" text="Este grupo fue creado por ti" />

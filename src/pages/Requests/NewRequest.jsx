@@ -1,9 +1,13 @@
 import RequestForm from "../../components/Requests/RequestForm"
 
+import ModuleTabs from "../../components/Navigation/ModuleTabs"
+import { requestTabs } from "../../components/Navigation/moduleTabsConfig"
+
 function NewRequest() {
   return (
     <main className="px-5 py-8 sm:px-8">
       <div className="mx-auto max-w-5xl">
+        <ModuleTabs label="Navegación de solicitudes" items={requestTabs} />
         <p className="text-sm font-semibold uppercase tracking-wider text-blue-600">
           Tutorías
         </p>

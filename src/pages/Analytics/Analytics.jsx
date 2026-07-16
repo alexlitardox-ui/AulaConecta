@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react"
-import { Activity, BarChart3, BookOpen, Download, GraduationCap, Heart, RefreshCw, ShieldCheck, Star, Users } from "lucide-react"
+import { Activity, BarChart3, BookOpen, Clock3, Download, GraduationCap, Heart, RefreshCw, ShieldCheck, Star, Target, TrendingUp, Trophy, Users } from "lucide-react"
 import AnalyticsCard from "../../components/analytics/AnalyticsCard"
 import ChartCard from "../../components/analytics/ChartCard"
 import { getAdminAnalytics, getUserAnalytics } from "../../services/analyticsService"
@@ -24,6 +24,27 @@ function MonthlyChart({ rows = [], admin = false }) {
       {admin && <div title={`Usuarios: ${item.usuarios}`} className="w-2.5 rounded-t bg-amber-500" style={{ height: `${Math.max(item.usuarios ? 8 : 0, (item.usuarios / max) * 100)}%` }} />}
     </div><span className="text-center text-xs font-bold capitalize text-slate-500">{item.label}</span>
   </div>)}</div>
+}
+
+
+function InsightCard({ icon: Icon, label, value, detail, tone = "blue" }) {
+  const tones = {
+    blue: "bg-blue-50 text-blue-700 dark:bg-blue-500/10 dark:text-blue-300",
+    emerald: "bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-300",
+    violet: "bg-violet-50 text-violet-700 dark:bg-violet-500/10 dark:text-violet-300",
+    amber: "bg-amber-50 text-amber-700 dark:bg-amber-500/10 dark:text-amber-300",
+  }
+
+  return <article className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+    <div className="flex items-start gap-4">
+      <span className={`grid h-11 w-11 shrink-0 place-items-center rounded-2xl ${tones[tone] || tones.blue}`}><Icon size={21}/></span>
+      <div className="min-w-0">
+        <p className="text-xs font-black uppercase tracking-[0.16em] text-slate-400">{label}</p>
+        <p className="mt-2 truncate text-xl font-black text-slate-950 dark:text-white">{value}</p>
+        <p className="mt-1 text-xs leading-5 text-slate-500 dark:text-slate-400">{detail}</p>
+      </div>
+    </div>
+  </article>
 }
 
 function EmptyChart({ text }) { return <div className="flex h-64 items-center justify-center rounded-2xl border border-dashed border-slate-300 px-6 text-center text-sm font-semibold text-slate-500 dark:border-slate-700 dark:text-slate-400">{text}</div> }
@@ -67,11 +88,48 @@ export default function Analytics() {
     {userData?.isAdmin && <div className="mt-6 inline-flex rounded-2xl border border-slate-200 bg-white p-1 shadow-sm dark:border-slate-800 dark:bg-slate-900"><button onClick={() => setView("personal")} className={`rounded-xl px-4 py-2 text-sm font-bold ${view === "personal" ? "bg-slate-950 text-white dark:bg-white dark:text-slate-950" : "text-slate-600 dark:text-slate-300"}`}><Activity size={15} className="mr-2 inline"/>Mi actividad</button><button onClick={() => setView("admin")} className={`rounded-xl px-4 py-2 text-sm font-bold ${view === "admin" ? "bg-slate-950 text-white dark:bg-white dark:text-slate-950" : "text-slate-600 dark:text-slate-300"}`}><ShieldCheck size={15} className="mr-2 inline"/>Vista global</button></div>}
 
     {error && <div className="mt-6 rounded-2xl border border-red-200 bg-red-50 p-4 text-sm font-semibold text-red-700 dark:border-red-900/50 dark:bg-red-950/30 dark:text-red-300">{error}</div>}
+    {!loading && view === "admin" && adminData?.insights && <section className="mt-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      <InsightCard
+        icon={TrendingUp}
+        label="Crecimiento mensual"
+        value={`${adminData.insights.userGrowth >= 0 ? "+" : ""}${adminData.insights.userGrowth.toFixed(1)}%`}
+        detail={`${adminData.insights.currentMonthUsers} usuarios este mes frente a ${adminData.insights.previousMonthUsers} el mes anterior.`}
+        tone="blue"
+      />
+      <InsightCard
+        icon={Target}
+        label="Tutorías completadas"
+        value={`${adminData.insights.completionRate.toFixed(1)}%`}
+        detail="Porcentaje de sesiones registradas que llegaron al estado completado."
+        tone="emerald"
+      />
+      <InsightCard
+        icon={BookOpen}
+        label="Aprobación de materiales"
+        value={`${adminData.insights.approvalRate.toFixed(1)}%`}
+        detail={`${adminData.insights.pendingReports} reportes permanecen pendientes de moderación.`}
+        tone="violet"
+      />
+      <InsightCard
+        icon={Clock3}
+        label="Hora de mayor actividad"
+        value={adminData.peakHours?.[0]?.name ?? "Sin datos"}
+        detail={adminData.peakHours?.[0] ? `${adminData.peakHours[0].value} acciones observadas en esa franja.` : "Todavía no existe actividad suficiente."}
+        tone="amber"
+      />
+    </section>}
     {loading ? <div className="mt-7 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">{[1,2,3,4].map(i => <div key={i} className="h-32 animate-pulse rounded-3xl bg-slate-200 dark:bg-slate-800"/>)}</div> : data && <><section className="mt-7 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">{cards.map(card => <AnalyticsCard key={card.title} {...card}/>)}</section><section className="mt-6 grid gap-6 xl:grid-cols-2">
       <ChartCard title={view === "admin" ? "Crecimiento de la plataforma" : "Actividad de los últimos 6 meses"} description="Tutorías, solicitudes y materiales por mes."><MonthlyChart rows={data.monthly} admin={view === "admin"}/></ChartCard>
       <ChartCard title="Materias con mayor actividad" description="Ranking según los registros disponibles."><BarList items={data.subjects} valueKey="total" empty="No existen materias con actividad registrada."/></ChartCard>
       <ChartCard title={view === "admin" ? "Estado de materiales" : "Distribución de tu actividad"} description="Composición de los registros disponibles."><BarList items={view === "admin" ? data.materialStatus : data.activity}/></ChartCard>
       <ChartCard title={view === "admin" ? "Usuarios por carrera" : "Estado de tus tutorías"} description={view === "admin" ? "Distribución de perfiles registrados." : "Situación actual de tus sesiones."}><BarList items={view === "admin" ? data.careers : data.sessionStatus}/></ChartCard>
+      {view === "admin" && <ChartCard title="Horas con mayor actividad" description="Distribución aproximada a partir de mensajes, solicitudes, tutorías y materiales recientes."><BarList items={data.peakHours}/></ChartCard>}
+      {view === "admin" && <ChartCard title="Indicadores destacados" description="Hallazgos automáticos generados a partir de los datos actuales."><div className="grid gap-3 sm:grid-cols-2">
+        <InsightCard icon={Trophy} label="Tutor mejor valorado" value={data.insights.topTutor?.name ?? "Sin reseñas"} detail={data.insights.topTutor ? `${data.insights.topTutor.rating.toFixed(1)} estrellas en ${data.insights.topTutor.reviews} reseñas.` : "Aún no existen reseñas suficientes."} tone="amber"/>
+        <InsightCard icon={Download} label="Material más descargado" value={data.insights.topMaterial?.title ?? "Sin descargas"} detail={data.insights.topMaterial ? `${data.insights.topMaterial.downloads} descargas registradas.` : "Aún no existen descargas registradas."} tone="emerald"/>
+        <InsightCard icon={Users} label="Carrera más activa" value={data.insights.topCareer?.name ?? "Sin datos"} detail={data.insights.topCareer ? `${data.insights.topCareer.total} perfiles registrados.` : "No existe información suficiente."} tone="blue"/>
+        <InsightCard icon={BookOpen} label="Materia con mayor actividad" value={data.insights.topSubject?.name ?? "Sin datos"} detail={data.insights.topSubject ? `${data.insights.topSubject.total} registros relacionados.` : "No existe información suficiente."} tone="violet"/>
+      </div></ChartCard>}
     </section></>}
   </div></main>
 }

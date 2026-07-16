@@ -3,6 +3,9 @@ import { Link, useNavigate } from "react-router-dom"
 
 import MaterialForm from "../../components/Materials/MaterialForm"
 
+import ModuleTabs from "../../components/Navigation/ModuleTabs"
+import { materialTabs } from "../../components/Navigation/moduleTabsConfig"
+
 function NewMaterial() {
   const navigate = useNavigate()
 
@@ -15,6 +18,7 @@ function NewMaterial() {
   return (
     <main className="px-5 py-8 sm:px-8">
       <div className="mx-auto max-w-6xl">
+        <ModuleTabs label="Navegación de materiales" items={materialTabs} />
         <Link
           to="/dashboard/materiales"
           className="inline-flex items-center gap-2 text-sm font-semibold text-blue-600 hover:text-blue-700"

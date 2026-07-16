@@ -13,6 +13,9 @@ import ApplicationModal from "../../components/Requests/ApplicationModal"
 import RequestCard from "../../components/Requests/RequestCard"
 import { getTutorRequests } from "../../services/requestService"
 
+import ModuleTabs from "../../components/Navigation/ModuleTabs"
+import { requestTabs } from "../../components/Navigation/moduleTabsConfig"
+
 const filters = [
   { value: "all", label: "Todas" },
   { value: "virtual", label: "Virtuales" },
@@ -84,6 +87,7 @@ function RequestsList() {
     <>
       <main className="px-5 py-8 sm:px-8">
         <section className="mx-auto max-w-7xl">
+        <ModuleTabs label="Navegación de solicitudes" items={requestTabs} />
           <div className="relative overflow-hidden rounded-[2rem] bg-gradient-to-br from-slate-950 via-blue-950 to-blue-800 px-6 py-8 text-white shadow-2xl shadow-blue-200/50 sm:px-9 lg:px-10">
             <div className="absolute -right-16 -top-20 h-64 w-64 rounded-full bg-cyan-400/20 blur-3xl" />
             <div className="absolute -bottom-24 left-1/3 h-60 w-60 rounded-full bg-violet-500/20 blur-3xl" />

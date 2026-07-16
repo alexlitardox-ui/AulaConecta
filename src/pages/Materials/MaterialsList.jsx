@@ -10,6 +10,9 @@ import {
   removeMaterialFavorite,
 } from "../../services/materialService"
 
+import ModuleTabs from "../../components/Navigation/ModuleTabs"
+import { materialTabs } from "../../components/Navigation/moduleTabsConfig"
+
 function MaterialsList() {
   const [materials, setMaterials] = useState([])
   const [favoriteIds, setFavoriteIds] = useState(new Set())
@@ -160,6 +163,7 @@ function MaterialsList() {
   return (
     <main className="px-5 py-8 sm:px-8">
       <section className="mx-auto max-w-7xl">
+        <ModuleTabs label="Navegación de materiales" items={materialTabs} />
         <div className="overflow-hidden rounded-[2rem] bg-gradient-to-br from-slate-950 via-blue-950 to-blue-700 p-7 text-white shadow-xl sm:p-9">
           <div className="flex flex-col gap-7 lg:flex-row lg:items-end lg:justify-between">
             <div className="max-w-2xl">

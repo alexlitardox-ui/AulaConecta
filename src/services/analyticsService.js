@@ -124,11 +124,17 @@ export async function getAdminAnalytics() {
   if (!profilesCheck[0]?.is_admin) return null
 
   const [profileRows, requestRows, sessionRows, groupRows, materialRows] = await Promise.all([
-    safeQuery(supabase.from("profiles").select("id,created_at,career_id")),
+    safeQuery(supabase.from("profiles").select("id,created_at,career_id,first_name,last_name,rating,role,is_admin")),
     safeQuery(supabase.from("tutor_requests").select("id,status,created_at,subject_id")),
     safeQuery(supabase.from("tutoring_sessions").select("id,status,created_at,session_date,subject_id")),
     safeQuery(supabase.from("study_groups").select("id,created_at,subject_id")),
-    safeQuery(supabase.from("materials").select("id,review_status,download_count,created_at,subject_id")),
+    safeQuery(supabase.from("materials").select("id,title,user_id,review_status,download_count,created_at,subject_id")),
+  ])
+
+  const [reviewRows, reportRows, messageRows] = await Promise.all([
+    safeQuery(supabase.from("reviews").select("reviewed_user_id,rating,created_at")),
+    safeQuery(supabase.from("reports").select("id,status,created_at")),
+    safeQuery(supabase.from("messages").select("id,created_at").order("created_at", { ascending: false }).limit(1000)),
   ])
 
   const monthly = buildLastMonths(6)
@@ -153,6 +159,62 @@ export async function getAdminAnalytics() {
     subjectCounts.set(name, (subjectCounts.get(name) ?? 0) + 1)
   })
 
+  const now = new Date()
+  const monthStart = new Date(now.getFullYear(), now.getMonth(), 1)
+  const previousMonthStart = new Date(now.getFullYear(), now.getMonth() - 1, 1)
+  const currentMonthUsers = profileRows.filter((item) => new Date(item.created_at) >= monthStart).length
+  const previousMonthUsers = profileRows.filter((item) => {
+    const created = new Date(item.created_at)
+    return created >= previousMonthStart && created < monthStart
+  }).length
+  const userGrowth = previousMonthUsers
+    ? ((currentMonthUsers - previousMonthUsers) / previousMonthUsers) * 100
+    : currentMonthUsers > 0 ? 100 : 0
+
+  const completedSessions = sessionRows.filter((item) => item.status === "completed").length
+  const completionRate = sessionRows.length ? (completedSessions / sessionRows.length) * 100 : 0
+  const reviewedMaterials = materialRows.filter((item) => ["approved", "rejected"].includes(item.review_status))
+  const approvedMaterials = materialRows.filter((item) => item.review_status === "approved").length
+  const approvalRate = reviewedMaterials.length ? (approvedMaterials / reviewedMaterials.length) * 100 : 0
+
+  const topMaterial = [...materialRows].sort((a, b) => Number(b.download_count || 0) - Number(a.download_count || 0))[0] ?? null
+
+  const tutorRatings = new Map()
+  reviewRows.forEach((item) => {
+    if (!item.reviewed_user_id) return
+    const entry = tutorRatings.get(item.reviewed_user_id) ?? { sum: 0, count: 0 }
+    entry.sum += Number(item.rating || 0)
+    entry.count += 1
+    tutorRatings.set(item.reviewed_user_id, entry)
+  })
+  const profileMap = new Map(profileRows.map((item) => [item.id, item]))
+  const topTutorEntry = [...tutorRatings.entries()]
+    .map(([id, values]) => ({
+      id,
+      average: values.count ? values.sum / values.count : 0,
+      reviews: values.count,
+      profile: profileMap.get(id),
+    }))
+    .filter((item) => item.profile && item.reviews > 0)
+    .sort((a, b) => b.average - a.average || b.reviews - a.reviews)[0] ?? null
+
+  const hourCounts = new Map()
+  ;[...messageRows, ...requestRows, ...sessionRows, ...materialRows].forEach((item) => {
+    const value = item.created_at || item.session_date
+    const date = new Date(value)
+    if (Number.isNaN(date.getTime())) return
+    const hour = date.getHours()
+    hourCounts.set(hour, (hourCounts.get(hour) ?? 0) + 1)
+  })
+  const peakHours = [...hourCounts.entries()]
+    .map(([hour, value]) => ({ name: `${String(hour).padStart(2, "0")}:00`, value }))
+    .sort((a, b) => b.value - a.value)
+    .slice(0, 6)
+
+  const topCareer = [...careerCounts.entries()].sort((a, b) => b[1] - a[1])[0] ?? null
+  const topSubject = [...subjectCounts.entries()].sort((a, b) => b[1] - a[1])[0] ?? null
+  const pendingReports = reportRows.filter((item) => item.status === "pending").length
+
   return {
     kpis: {
       users: profileRows.length,
@@ -170,5 +232,33 @@ export async function getAdminAnalytics() {
       { name: "Pendientes", value: materialRows.filter((item) => item.review_status === "pending").length },
       { name: "Rechazados", value: materialRows.filter((item) => item.review_status === "rejected").length },
     ].filter((item) => item.value > 0),
+    peakHours,
+    insights: {
+      userGrowth,
+      currentMonthUsers,
+      previousMonthUsers,
+      completionRate,
+      approvalRate,
+      pendingReports,
+      topCareer: topCareer ? { name: topCareer[0], total: topCareer[1] } : null,
+      topSubject: topSubject ? { name: topSubject[0], total: topSubject[1] } : null,
+      topMaterial: topMaterial
+        ? {
+            id: topMaterial.id,
+            title: topMaterial.title || "Material sin título",
+            downloads: Number(topMaterial.download_count || 0),
+          }
+        : null,
+      topTutor: topTutorEntry
+        ? {
+            id: topTutorEntry.id,
+            name:
+              `${topTutorEntry.profile.first_name ?? ""} ${topTutorEntry.profile.last_name ?? ""}`.trim() ||
+              "Tutor",
+            rating: topTutorEntry.average,
+            reviews: topTutorEntry.reviews,
+          }
+        : null,
+    },
   }
 }

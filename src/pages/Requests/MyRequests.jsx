@@ -7,9 +7,13 @@ import {
   Plus,
   RefreshCw,
   Search,
+  Trash2,
 } from "lucide-react"
-import { Link } from "react-router-dom"
-import { getMyTutorRequests } from "../../services/requestService"
+import { deleteOwnTutorRequest, getMyTutorRequests } from "../../services/requestService"
+
+import ModuleTabs from "../../components/Navigation/ModuleTabs"
+import { requestTabs } from "../../components/Navigation/moduleTabsConfig"
+import { Button, EmptyState, FeedbackAlert, LoadingState, MetricCard, PageHeader } from "../../components/UI"
 
 const statusOptions = [
   { value: "all", label: "Todas" },
@@ -60,6 +64,8 @@ function MyRequests() {
   const [message, setMessage] = useState("")
   const [searchTerm, setSearchTerm] = useState("")
   const [statusFilter, setStatusFilter] = useState("all")
+  const [deletingId, setDeletingId] = useState(null)
+  const [messageType, setMessageType] = useState("error")
 
   async function loadMyRequests() {
     setLoading(true)
@@ -78,6 +84,32 @@ function MyRequests() {
   useEffect(() => {
     loadMyRequests()
   }, [])
+
+  async function handleDeleteRequest(request) {
+    const blocked = request.status === "accepted"
+    if (blocked) {
+      setMessage("Una solicitud aceptada ya tiene una tutoría asociada. Cancela o finaliza la tutoría en lugar de borrarla.")
+      setMessageType("error")
+      return
+    }
+
+    if (!window.confirm(`¿Eliminar definitivamente la solicitud “${request.title}”? Esta acción no se puede deshacer.`)) return
+
+    setDeletingId(request.id)
+    setMessage("")
+    try {
+      await deleteOwnTutorRequest(request.id)
+      setRequests((current) => current.filter((item) => item.id !== request.id))
+      setMessage("Solicitud eliminada correctamente.")
+      setMessageType("success")
+    } catch (error) {
+      console.error(error)
+      setMessage(error.message || "No se pudo eliminar la solicitud.")
+      setMessageType("error")
+    } finally {
+      setDeletingId(null)
+    }
+  }
 
   const filteredRequests = useMemo(() => {
     const text = searchTerm.trim().toLowerCase()
@@ -106,46 +138,29 @@ function MyRequests() {
   return (
     <main className="px-5 py-8 sm:px-8">
       <section className="mx-auto max-w-7xl">
-        <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
-          <div>
-            <p className="text-sm font-bold uppercase tracking-[0.16em] text-blue-600">
-              Gestión académica
-            </p>
-            <h1 className="mt-2 text-3xl font-black tracking-tight text-slate-900 sm:text-4xl">
-              Mis solicitudes
-            </h1>
-            <p className="mt-3 max-w-2xl text-slate-600">
-              Revisa el estado de tus publicaciones y las postulaciones recibidas.
-            </p>
-          </div>
-
-          <div className="flex flex-col gap-3 sm:flex-row">
-            <button
-              type="button"
-              onClick={loadMyRequests}
-              disabled={loading}
-              className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-5 py-3 font-bold text-slate-700 transition hover:bg-slate-50 disabled:opacity-60"
-            >
-              <RefreshCw size={18} className={loading ? "animate-spin" : ""} />
-              Actualizar
-            </button>
-            <Link
-              to="/dashboard/solicitudes/nueva"
-              className="inline-flex items-center justify-center gap-2 rounded-xl bg-blue-600 px-5 py-3 font-bold text-white shadow-lg shadow-blue-200 transition hover:-translate-y-0.5 hover:bg-blue-700"
-            >
-              <Plus size={19} />
-              Nueva solicitud
-            </Link>
-          </div>
-        </div>
+        <ModuleTabs label="Navegación de solicitudes" items={requestTabs} />
+        <PageHeader
+          eyebrow="Gestión académica"
+          title="Mis solicitudes"
+          description="Revisa el estado de tus publicaciones y las postulaciones recibidas."
+          actions={
+            <>
+              <Button variant="secondary" onClick={loadMyRequests} disabled={loading}>
+                <RefreshCw size={18} className={loading ? "animate-spin" : ""} />
+                Actualizar
+              </Button>
+              <Button as="link" to="/dashboard/solicitudes/nueva">
+                <Plus size={19} />
+                Nueva solicitud
+              </Button>
+            </>
+          }
+        />
 
         <div className="mt-8 grid gap-4 sm:grid-cols-3">
-          <StatCard value={requests.length} label="Solicitudes publicadas" />
-          <StatCard value={pendingApplications} label="Postulaciones pendientes" />
-          <StatCard
-            value={requests.filter((request) => request.status === "accepted").length}
-            label="Solicitudes aceptadas"
-          />
+          <MetricCard value={requests.length} label="Solicitudes publicadas" icon={FileText} />
+          <MetricCard value={pendingApplications} label="Postulaciones pendientes" icon={Clock} tone="amber" />
+          <MetricCard value={requests.filter((request) => request.status === "accepted").length} label="Solicitudes aceptadas" icon={CalendarDays} tone="emerald" />
         </div>
 
         <div className="mt-6 rounded-[1.5rem] border border-slate-200 bg-white p-4 shadow-sm">
@@ -179,27 +194,18 @@ function MyRequests() {
           </div>
         </div>
 
-        {message && (
-          <div className="mt-6 rounded-2xl border border-red-200 bg-red-50 px-5 py-4 text-red-700">
-            {message}
-          </div>
-        )}
+        {message ? <FeedbackAlert type={messageType} className="mt-6">{message}</FeedbackAlert> : null}
 
         {loading ? (
-          <div className="mt-12 text-center">
-            <div className="mx-auto h-12 w-12 animate-spin rounded-full border-4 border-slate-200 border-t-blue-600" />
-            <p className="mt-4 text-slate-600">Cargando tus solicitudes...</p>
-          </div>
+          <LoadingState label="Cargando tus solicitudes..." />
         ) : filteredRequests.length === 0 ? (
-          <div className="mt-8 rounded-[1.75rem] border border-dashed border-slate-300 bg-white p-12 text-center">
-            <FileText size={36} className="mx-auto text-blue-600" />
-            <h2 className="mt-4 text-xl font-extrabold text-slate-900">
-              No hay solicitudes para mostrar
-            </h2>
-            <p className="mt-3 text-slate-500">
-              Cambia los filtros o publica una nueva solicitud.
-            </p>
-          </div>
+          <EmptyState
+            icon={FileText}
+            title="No hay solicitudes para mostrar"
+            description="Cambia los filtros o publica una nueva solicitud para encontrar apoyo académico."
+            actionLabel="Crear solicitud"
+            actionTo="/dashboard/solicitudes/nueva"
+          />
         ) : (
           <div className="mt-8 space-y-5">
             {filteredRequests.map((request) => {
@@ -252,13 +258,21 @@ function MyRequests() {
                         <p className="text-2xl font-black text-blue-700">{applicationsCount}</p>
                         <p className="text-xs font-semibold text-slate-500">Pendientes</p>
                       </div>
-                      <Link
-                        to={`/dashboard/solicitudes/${request.id}`}
-                        className="inline-flex items-center justify-center gap-2 rounded-xl bg-slate-900 px-5 py-3 font-bold text-white transition hover:bg-blue-700"
-                      >
-                        <Eye size={18} />
-                        Ver detalle
-                      </Link>
+                      <div className="flex flex-col gap-2">
+                        <Button as="link" to={`/dashboard/solicitudes/${request.id}`} variant="dark">
+                          <Eye size={18} />
+                          Ver detalle
+                        </Button>
+                        <Button
+                          variant="danger"
+                          onClick={() => handleDeleteRequest(request)}
+                          disabled={deletingId === request.id || request.status === "accepted"}
+                          title={request.status === "accepted" ? "No se puede borrar una solicitud con tutoría aceptada" : "Eliminar solicitud"}
+                        >
+                          <Trash2 size={18} />
+                          {deletingId === request.id ? "Eliminando..." : "Eliminar"}
+                        </Button>
+                      </div>
                     </div>
                   </div>
                 </article>
@@ -271,13 +285,5 @@ function MyRequests() {
   )
 }
 
-function StatCard({ value, label }) {
-  return (
-    <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-      <p className="text-3xl font-black text-slate-900">{value}</p>
-      <p className="mt-1 text-sm font-semibold text-slate-500">{label}</p>
-    </div>
-  )
-}
 
 export default MyRequests

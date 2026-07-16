@@ -4,6 +4,9 @@ import { Link } from "react-router-dom"
 import GroupCard from "../../components/Groups/GroupCard"
 import { getStudyGroups, joinStudyGroup } from "../../services/groupService"
 
+import ModuleTabs from "../../components/Navigation/ModuleTabs"
+import { groupTabs } from "../../components/Navigation/moduleTabsConfig"
+
 function GroupsList() {
   const [groups, setGroups] = useState([])
   const [searchTerm, setSearchTerm] = useState("")
@@ -65,6 +68,7 @@ function GroupsList() {
   return (
     <main className="px-5 py-8 sm:px-8">
       <section className="mx-auto max-w-7xl">
+        <ModuleTabs label="Navegación de grupos de estudio" items={groupTabs} />
         <div className="overflow-hidden rounded-[2rem] bg-slate-950 p-7 text-white shadow-xl sm:p-9">
           <div className="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
             <div className="max-w-2xl">

@@ -316,3 +316,18 @@ export async function acceptTutorApplication(applicationId) {
 
   return data
 }
+
+export async function deleteOwnTutorRequest(requestId) {
+  const { data, error } = await supabase.rpc("delete_own_tutor_request", {
+    target_request_id: Number(requestId),
+  })
+
+  if (error) {
+    if (error.code === "42883" || error.message?.includes("delete_own_tutor_request")) {
+      throw new Error("Falta ejecutar el SQL de eliminación segura en Supabase.")
+    }
+    throw error
+  }
+
+  return data
+}

@@ -1,12 +1,14 @@
-import { useEffect, useMemo, useState } from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
 import { NavLink, Outlet, useNavigate } from "react-router-dom"
 import {
   BarChart3,
-  Bot,
   Bell,
   BookOpen,
+  Bot,
   CalendarDays,
+  ChevronDown,
   ChevronRight,
+  CircleHelp,
   FileText,
   GraduationCap,
   Heart,
@@ -14,6 +16,7 @@ import {
   LogOut,
   Menu,
   MessageCircle,
+  Plus,
   Settings,
   ShieldCheck,
   Sparkles,
@@ -117,16 +120,50 @@ const menuSections = [
   },
 ]
 
+const quickActions = [
+  {
+    label: "Nueva solicitud",
+    description: "Solicita ayuda académica",
+    path: "/dashboard/solicitudes/nueva",
+    icon: BookOpen,
+    iconClass: "bg-blue-100 text-blue-700",
+  },
+  {
+    label: "Subir material",
+    description: "Comparte apuntes o recursos",
+    path: "/dashboard/materiales/nuevo",
+    icon: FileText,
+    iconClass: "bg-emerald-100 text-emerald-700",
+  },
+  {
+    label: "Crear grupo",
+    description: "Organiza un grupo de estudio",
+    path: "/dashboard/grupos/nuevo",
+    icon: Users,
+    iconClass: "bg-indigo-100 text-indigo-700",
+  },
+]
+
 function DashboardLayout() {
   const navigate = useNavigate()
 
+  const quickActionsRef = useRef(null)
+  const userMenuRef = useRef(null)
+
   const [user, setUser] = useState(null)
   const [avatarUrl, setAvatarUrl] = useState("")
-  const [profileName, setProfileName] = useState({ firstName: "", lastName: "" })
+  const [profileName, setProfileName] = useState({
+    firstName: "",
+    lastName: "",
+  })
+
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [loggingOut, setLoggingOut] = useState(false)
   const [unreadNotifications, setUnreadNotifications] = useState(0)
   const [isAdmin, setIsAdmin] = useState(false)
+
+  const [quickActionsOpen, setQuickActionsOpen] = useState(false)
+  const [userMenuOpen, setUserMenuOpen] = useState(false)
 
   useEffect(() => {
     let unsubscribeNotifications = () => {}
@@ -152,25 +189,46 @@ function DashboardLayout() {
       try {
         profile = await ensureCurrentProfile()
       } catch (profileError) {
-        console.error("No se pudo cargar o completar el perfil:", profileError)
+        console.error(
+          "No se pudo cargar o completar el perfil:",
+          profileError,
+        )
       }
 
       if (mounted) {
         setAvatarUrl(
-          profile?.avatar_url || currentUser.user_metadata?.avatar_url || "",
+          profile?.avatar_url ||
+            currentUser.user_metadata?.avatar_url ||
+            "",
         )
+
         setProfileName({
-          firstName: profile?.first_name || currentUser.user_metadata?.first_name || "",
-          lastName: profile?.last_name || currentUser.user_metadata?.last_name || "",
+          firstName:
+            profile?.first_name ||
+            currentUser.user_metadata?.first_name ||
+            "",
+          lastName:
+            profile?.last_name ||
+            currentUser.user_metadata?.last_name ||
+            "",
         })
-        setIsAdmin(Boolean(profile?.is_admin || profile?.role === "admin" || profile?.role === "moderator"))
+
+        setIsAdmin(
+          Boolean(
+            profile?.is_admin ||
+              profile?.role === "admin" ||
+              profile?.role === "moderator",
+          ),
+        )
       }
 
       async function loadUnreadCount() {
         try {
           const count = await getUnreadNotificationsCount()
 
-          if (mounted) setUnreadNotifications(count)
+          if (mounted) {
+            setUnreadNotifications(count)
+          }
         } catch (countError) {
           console.error(
             "No se pudo cargar el número de notificaciones:",
@@ -191,24 +249,32 @@ function DashboardLayout() {
 
     const {
       data: { subscription: authSubscription },
-    } = supabase.auth.onAuthStateChange(async (_event, currentSession) => {
-      if (!mounted) return
+    } = supabase.auth.onAuthStateChange(
+      async (_event, currentSession) => {
+        if (!mounted) return
 
-      const currentUser = currentSession?.user ?? null
-      setUser(currentUser)
+        const currentUser = currentSession?.user ?? null
+        setUser(currentUser)
 
-      if (!currentUser) {
-        setAvatarUrl("")
-        setUnreadNotifications(0)
-        setIsAdmin(false)
-        setProfileName({ firstName: "", lastName: "" })
-        return
-      }
+        if (!currentUser) {
+          setAvatarUrl("")
+          setUnreadNotifications(0)
+          setIsAdmin(false)
+          setProfileName({
+            firstName: "",
+            lastName: "",
+          })
+          return
+        }
 
-      const metadataAvatar = currentUser.user_metadata?.avatar_url || ""
+        const metadataAvatar =
+          currentUser.user_metadata?.avatar_url || ""
 
-      if (metadataAvatar) setAvatarUrl(metadataAvatar)
-    })
+        if (metadataAvatar) {
+          setAvatarUrl(metadataAvatar)
+        }
+      },
+    )
 
     return () => {
       mounted = false
@@ -217,6 +283,42 @@ function DashboardLayout() {
     }
   }, [])
 
+  useEffect(() => {
+    function handleDocumentClick(event) {
+      if (
+        quickActionsRef.current &&
+        !quickActionsRef.current.contains(event.target)
+      ) {
+        setQuickActionsOpen(false)
+      }
+
+      if (
+        userMenuRef.current &&
+        !userMenuRef.current.contains(event.target)
+      ) {
+        setUserMenuOpen(false)
+      }
+    }
+
+    function handleEscape(event) {
+      if (event.key !== "Escape") return
+
+      setQuickActionsOpen(false)
+      setUserMenuOpen(false)
+      setSidebarOpen(false)
+    }
+
+    document.addEventListener("mousedown", handleDocumentClick)
+    window.addEventListener("keydown", handleEscape)
+
+    return () => {
+      document.removeEventListener(
+        "mousedown",
+        handleDocumentClick,
+      )
+      window.removeEventListener("keydown", handleEscape)
+    }
+  }, [])
 
   const visibleMenuSections = useMemo(() => {
     if (!isAdmin) return menuSections
@@ -238,6 +340,7 @@ function DashboardLayout() {
 
   async function handleLogout() {
     setLoggingOut(true)
+    setUserMenuOpen(false)
 
     const { error } = await supabase.auth.signOut()
 
@@ -250,19 +353,33 @@ function DashboardLayout() {
     navigate("/login", { replace: true })
   }
 
+  function handleQuickAction(path) {
+    setQuickActionsOpen(false)
+    navigate(path)
+  }
+
+  function handleUserNavigation(path) {
+    setUserMenuOpen(false)
+    navigate(path)
+  }
+
   const firstName =
     profileName.firstName ||
     user?.user_metadata?.first_name ||
     user?.email?.split("@")[0] ||
     "Estudiante"
 
-  const lastName = profileName.lastName || user?.user_metadata?.last_name || ""
+  const lastName =
+    profileName.lastName ||
+    user?.user_metadata?.last_name ||
+    ""
 
   const fullName = `${firstName} ${lastName}`.trim()
 
   const initials =
-    `${firstName.charAt(0)}${lastName.charAt(0)}`.trim().toUpperCase() ||
-    firstName.slice(0, 2).toUpperCase()
+    `${firstName.charAt(0)}${lastName.charAt(0)}`
+      .trim()
+      .toUpperCase() || firstName.slice(0, 2).toUpperCase()
 
   const greeting = useMemo(() => {
     const hour = new Date().getHours()
@@ -271,6 +388,8 @@ function DashboardLayout() {
     if (hour < 19) return "Buenas tardes"
     return "Buenas noches"
   }, [])
+
+  const displayedRole = isAdmin ? "Administrador" : "Estudiante"
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900">
@@ -285,10 +404,13 @@ function DashboardLayout() {
 
       <aside
         className={`fixed inset-y-0 left-0 z-50 flex w-72 flex-col overflow-hidden border-r border-white/10 bg-slate-950 text-white shadow-2xl shadow-slate-950/20 transition-transform duration-300 lg:translate-x-0 ${
-          sidebarOpen ? "translate-x-0" : "-translate-x-full"
+          sidebarOpen
+            ? "translate-x-0"
+            : "-translate-x-full"
         }`}
       >
         <div className="pointer-events-none absolute inset-x-0 top-0 h-64 bg-gradient-to-b from-blue-600/25 via-indigo-500/10 to-transparent" />
+
         <div className="pointer-events-none absolute -left-24 top-36 h-52 w-52 rounded-full bg-blue-500/10 blur-3xl" />
 
         <div className="relative flex min-h-24 items-center justify-between border-b border-white/10 px-5">
@@ -305,6 +427,7 @@ function DashboardLayout() {
               <h1 className="truncate text-xl font-black tracking-tight">
                 AulaConecta
               </h1>
+
               <p className="mt-0.5 text-xs font-medium text-slate-400">
                 Aprende · Comparte · Crece
               </p>
@@ -327,10 +450,12 @@ function DashboardLayout() {
               <div className="mt-0.5 rounded-xl bg-blue-500/15 p-2 text-blue-300">
                 <Sparkles size={18} />
               </div>
+
               <div>
                 <p className="text-sm font-semibold text-white">
                   Tu espacio académico
                 </p>
+
                 <p className="mt-1 text-xs leading-5 text-slate-400">
                   Conecta con estudiantes y avanza en tus materias.
                 </p>
@@ -349,14 +474,17 @@ function DashboardLayout() {
                   {section.items.map((item) => {
                     const Icon = item.icon
                     const isNotifications =
-                      item.path === "/dashboard/notificaciones"
+                      item.path ===
+                      "/dashboard/notificaciones"
 
                     return (
                       <NavLink
                         key={item.path}
                         to={item.path}
                         end={item.end}
-                        onClick={() => setSidebarOpen(false)}
+                        onClick={() =>
+                          setSidebarOpen(false)
+                        }
                         className={({ isActive }) =>
                           `group relative flex w-full items-center gap-3 overflow-hidden rounded-xl px-3.5 py-3 text-sm font-semibold transition duration-200 ${
                             isActive
@@ -369,7 +497,9 @@ function DashboardLayout() {
                           <>
                             <span
                               className={`absolute inset-y-2 left-0 w-1 rounded-r-full transition ${
-                                isActive ? "bg-white" : "bg-transparent"
+                                isActive
+                                  ? "bg-white"
+                                  : "bg-transparent"
                               }`}
                             />
 
@@ -386,7 +516,8 @@ function DashboardLayout() {
                               {item.label}
                             </span>
 
-                            {isNotifications && unreadNotifications > 0 ? (
+                            {isNotifications &&
+                            unreadNotifications > 0 ? (
                               <span className="flex min-w-6 items-center justify-center rounded-full bg-red-500 px-2 py-0.5 text-[11px] font-extrabold text-white ring-2 ring-white/10">
                                 {unreadNotifications > 99
                                   ? "99+"
@@ -438,12 +569,16 @@ function DashboardLayout() {
               <p className="truncate text-sm font-bold text-white">
                 {fullName}
               </p>
+
               <p className="mt-0.5 truncate text-xs text-slate-400">
                 {user?.email || "Cargando..."}
               </p>
             </div>
 
-            <ChevronRight size={17} className="shrink-0 text-slate-500" />
+            <ChevronRight
+              size={17}
+              className="shrink-0 text-slate-500"
+            />
           </NavLink>
 
           <div className="grid grid-cols-2 gap-2">
@@ -477,7 +612,7 @@ function DashboardLayout() {
 
       <div className="min-h-screen lg:pl-72">
         <header className="sticky top-0 z-30 border-b border-slate-200/80 bg-white/90 backdrop-blur-xl">
-          <div className="flex min-h-20 items-center gap-4 px-4 sm:px-6 lg:px-8">
+          <div className="flex min-h-20 items-center gap-3 px-4 sm:gap-4 sm:px-6 lg:px-8">
             <button
               type="button"
               aria-label="Abrir menú lateral"
@@ -491,6 +626,7 @@ function DashboardLayout() {
               <p className="text-sm font-bold text-slate-900">
                 {greeting}, {firstName} 👋
               </p>
+
               <p className="mt-0.5 text-xs text-slate-500">
                 Bienvenido nuevamente
               </p>
@@ -501,6 +637,77 @@ function DashboardLayout() {
             </div>
 
             <div className="ml-auto flex items-center gap-2 sm:gap-3">
+              <div
+                ref={quickActionsRef}
+                className="relative"
+              >
+                <button
+                  type="button"
+                  aria-label="Abrir acciones rápidas"
+                  aria-expanded={quickActionsOpen}
+                  onClick={() => {
+                    setQuickActionsOpen(
+                      (currentValue) => !currentValue,
+                    )
+                    setUserMenuOpen(false)
+                  }}
+                  className="flex items-center gap-2 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 px-3 py-2.5 text-sm font-bold text-white shadow-md shadow-blue-200 transition hover:-translate-y-0.5 hover:shadow-lg"
+                >
+                  <Plus size={19} />
+
+                  <span className="hidden lg:inline">
+                    Nuevo
+                  </span>
+                </button>
+
+                {quickActionsOpen && (
+                  <div className="absolute right-0 top-[calc(100%+0.75rem)] z-50 w-80 overflow-hidden rounded-2xl border border-slate-200 bg-white p-2 shadow-2xl">
+                    <div className="border-b border-slate-100 px-3 py-3">
+                      <p className="font-bold text-slate-900">
+                        Crear contenido
+                      </p>
+
+                      <p className="mt-1 text-xs text-slate-500">
+                        Accede rápidamente a las acciones principales.
+                      </p>
+                    </div>
+
+                    <div className="space-y-1 p-1 pt-2">
+                      {quickActions.map((action) => {
+                        const Icon = action.icon
+
+                        return (
+                          <button
+                            key={action.path}
+                            type="button"
+                            onClick={() =>
+                              handleQuickAction(action.path)
+                            }
+                            className="flex w-full items-center gap-3 rounded-xl p-3 text-left transition hover:bg-slate-50"
+                          >
+                            <div
+                              className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl ${action.iconClass}`}
+                            >
+                              <Icon size={20} />
+                            </div>
+
+                            <div className="min-w-0">
+                              <p className="font-semibold text-slate-900">
+                                {action.label}
+                              </p>
+
+                              <p className="mt-1 text-xs text-slate-500">
+                                {action.description}
+                              </p>
+                            </div>
+                          </button>
+                        )
+                      })}
+                    </div>
+                  </div>
+                )}
+              </div>
+
               <ThemeToggle compact />
 
               <NavLink
@@ -512,44 +719,132 @@ function DashboardLayout() {
 
                 {unreadNotifications > 0 && (
                   <span className="absolute -right-2 -top-2 flex min-h-5 min-w-5 items-center justify-center rounded-full bg-red-500 px-1.5 text-[10px] font-extrabold text-white ring-2 ring-white">
-                    {unreadNotifications > 99 ? "99+" : unreadNotifications}
+                    {unreadNotifications > 99
+                      ? "99+"
+                      : unreadNotifications}
                   </span>
                 )}
               </NavLink>
 
-              <NavLink
-                to="/dashboard/perfil"
-                className="group flex items-center gap-3 rounded-2xl border border-slate-200 bg-white p-1.5 pr-2.5 shadow-sm transition hover:border-blue-200 hover:shadow-md"
+              <div
+                ref={userMenuRef}
+                className="relative"
               >
-                <div className="h-10 w-10 shrink-0 overflow-hidden rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600">
-                  {avatarUrl ? (
-                    <img
-                      src={avatarUrl}
-                      alt={`Fotografía de ${firstName}`}
-                      className="h-full w-full object-cover"
-                      onError={() => setAvatarUrl("")}
-                    />
-                  ) : (
-                    <div className="flex h-full w-full items-center justify-center text-sm font-black text-white">
-                      {initials}
+                <button
+                  type="button"
+                  aria-label="Abrir menú de usuario"
+                  aria-expanded={userMenuOpen}
+                  onClick={() => {
+                    setUserMenuOpen(
+                      (currentValue) => !currentValue,
+                    )
+                    setQuickActionsOpen(false)
+                  }}
+                  className="group flex items-center gap-3 rounded-2xl border border-slate-200 bg-white p-1.5 pr-2.5 shadow-sm transition hover:border-blue-200 hover:shadow-md"
+                >
+                  <div className="h-10 w-10 shrink-0 overflow-hidden rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600">
+                    {avatarUrl ? (
+                      <img
+                        src={avatarUrl}
+                        alt={`Fotografía de ${firstName}`}
+                        className="h-full w-full object-cover"
+                        onError={() => setAvatarUrl("")}
+                      />
+                    ) : (
+                      <div className="flex h-full w-full items-center justify-center text-sm font-black text-white">
+                        {initials}
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="hidden min-w-0 text-left sm:block">
+                    <p className="max-w-36 truncate text-sm font-bold text-slate-900">
+                      {fullName}
+                    </p>
+
+                    <p className="max-w-36 truncate text-xs text-slate-500">
+                      {displayedRole}
+                    </p>
+                  </div>
+
+                  <ChevronDown
+                    size={16}
+                    className={`hidden text-slate-400 transition sm:block ${
+                      userMenuOpen ? "rotate-180" : ""
+                    }`}
+                  />
+                </button>
+
+                {userMenuOpen && (
+                  <div className="absolute right-0 top-[calc(100%+0.75rem)] z-50 w-72 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl">
+                    <div className="border-b border-slate-100 bg-slate-50 px-4 py-4">
+                      <p className="truncate font-bold text-slate-900">
+                        {fullName}
+                      </p>
+
+                      <p className="mt-1 truncate text-xs text-slate-500">
+                        {user?.email || ""}
+                      </p>
                     </div>
-                  )}
-                </div>
 
-                <div className="hidden min-w-0 text-left sm:block">
-                  <p className="max-w-36 truncate text-sm font-bold text-slate-900">
-                    {fullName}
-                  </p>
-                  <p className="max-w-36 truncate text-xs text-slate-500">
-                    Estudiante
-                  </p>
-                </div>
+                    <div className="p-2">
+                      <button
+                        type="button"
+                        onClick={() =>
+                          handleUserNavigation(
+                            "/dashboard/perfil",
+                          )
+                        }
+                        className="flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left text-sm font-semibold text-slate-700 transition hover:bg-blue-50 hover:text-blue-700"
+                      >
+                        <User size={18} />
+                        Mi perfil
+                      </button>
 
-                <ChevronRight
-                  size={16}
-                  className="hidden text-slate-400 transition group-hover:translate-x-0.5 group-hover:text-blue-600 sm:block"
-                />
-              </NavLink>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          handleUserNavigation(
+                            "/dashboard/configuracion",
+                          )
+                        }
+                        className="flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left text-sm font-semibold text-slate-700 transition hover:bg-blue-50 hover:text-blue-700"
+                      >
+                        <Settings size={18} />
+                        Configuración
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() =>
+                          handleUserNavigation(
+                            "/dashboard/asistente",
+                          )
+                        }
+                        className="flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left text-sm font-semibold text-slate-700 transition hover:bg-blue-50 hover:text-blue-700"
+                      >
+                        <CircleHelp size={18} />
+                        Ayuda y asistente
+                      </button>
+                    </div>
+
+                    <div className="border-t border-slate-100 p-2">
+                      <button
+                        type="button"
+                        onClick={handleLogout}
+                        disabled={loggingOut}
+                        className="flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left text-sm font-semibold text-red-600 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-60"
+                      >
+                        <LogOut size={18} />
+
+                        {loggingOut
+                          ? "Cerrando sesión..."
+                          : "Cerrar sesión"}
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
 
@@ -566,6 +861,7 @@ function DashboardLayout() {
               avatarUrl,
               setAvatarUrl,
               unreadNotifications,
+              isAdmin,
             }}
           />
         </main>

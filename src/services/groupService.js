@@ -133,3 +133,18 @@ export async function updateGroupMembershipStatus(membershipId, newStatus) {
   }
   return data
 }
+
+export async function deleteOwnStudyGroup(groupId) {
+  const { data, error } = await supabase.rpc("delete_own_study_group", {
+    target_group_id: Number(groupId),
+  })
+
+  if (error) {
+    if (error.code === "42883" || error.message?.includes("delete_own_study_group")) {
+      throw new Error("Falta ejecutar el SQL de eliminación segura en Supabase.")
+    }
+    throw error
+  }
+
+  return data
+}
