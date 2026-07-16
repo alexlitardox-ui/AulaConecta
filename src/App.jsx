@@ -39,6 +39,7 @@ const Achievements = lazy(() => import("./pages/Achievements/Achievements"))
 const Analytics = lazy(() => import("./pages/Analytics/Analytics"))
 const Assistant = lazy(() => import("./pages/Assistant/Assistant"))
 const UserProfile = lazy(() => import("./pages/UserProfile/UserProfile"))
+const Support = lazy(() => import("./pages/Support/Support"))
 
 function App() {
   return (
@@ -85,6 +86,7 @@ function App() {
               <Route path="administracion" element={<Admin />} />
               <Route path="notificaciones" element={<Notifications />} />
               <Route path="configuracion" element={<Settings />} />
+              <Route path="soporte" element={<Support />} />
               <Route path="*" element={<NotFound />} />
             </Route>
 

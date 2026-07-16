@@ -8,6 +8,7 @@ import {
   Clock3,
   GraduationCap,
   MessageCircle,
+  Headphones,
   Plus,
   RefreshCw,
   Sparkles,
@@ -58,6 +59,13 @@ const quickActions = [
     path: "/dashboard/materiales/nuevo",
     icon: GraduationCap,
     iconClass: "bg-amber-100 text-amber-700",
+  },
+  {
+    title: "Soporte y ayuda",
+    description: "Reporta un problema o envía una sugerencia.",
+    path: "/dashboard/soporte",
+    icon: Headphones,
+    iconClass: "bg-rose-100 text-rose-700",
   },
 ]
 
