@@ -18,6 +18,7 @@ import {
   XCircle,
 } from "lucide-react"
 import { Link, useNavigate, useParams } from "react-router-dom"
+import ReportButton from "../../components/Reports/ReportButton"
 
 import {
   acceptTutorApplication,
@@ -276,6 +277,8 @@ function RequestDetail() {
           <ArrowLeft size={18} />
           Volver
         </button>
+
+        {!request.isOwnRequest && <div className="mt-3 flex justify-end"><ReportButton entityType="request" entityId={request.id} /></div>}
 
         {message && (
           <div

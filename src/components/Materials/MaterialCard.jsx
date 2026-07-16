@@ -1,3 +1,5 @@
+import ReportButton from "../Reports/ReportButton"
+
 import {
   BookOpen,
   CalendarDays,
@@ -71,6 +73,7 @@ function MaterialCard({
           </div>
 
           <div className="flex flex-wrap items-center justify-end gap-2">
+            <ReportButton entityType="material" entityId={material.id} compact />
             {onToggleFavorite && (
               <button
                 type="button"

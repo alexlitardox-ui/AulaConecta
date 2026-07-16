@@ -1,3 +1,5 @@
+import ReportButton from "../Reports/ReportButton"
+
 import {
   ArrowRight,
   CalendarDays,
@@ -91,6 +93,8 @@ function GroupCard({ group, onJoin, joining = false, showJoinButton = true }) {
             {availableSpots > 0 ? `${availableSpots} cupos disponibles` : "Grupo completo"}
           </p>
         </div>
+
+        {!group.isCreator && <div className="mt-4 flex justify-end"><ReportButton entityType="group" entityId={group.id} /></div>}
 
         {group.isCreator ? (
           <StatusBox icon={Crown} className="border-amber-200 bg-amber-50 text-amber-700" text="Este grupo fue creado por ti" />

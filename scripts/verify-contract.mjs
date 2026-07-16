@@ -3,8 +3,8 @@ import path from 'node:path'
 
 const root = process.cwd()
 const src = path.join(root, 'src')
-const sqlPath = path.join(root, 'supabase_estabilidad_final.sql')
-const sql = fs.readFileSync(sqlPath, 'utf8')
+const sqlFiles = fs.readdirSync(root).filter((name) => /^supabase_.*\.sql$/.test(name))
+const sql = sqlFiles.map((name) => fs.readFileSync(path.join(root, name), 'utf8')).join('\n')
 
 function walk(dir) {
   return fs.readdirSync(dir, { withFileTypes: true }).flatMap((entry) => {
