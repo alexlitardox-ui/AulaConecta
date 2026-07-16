@@ -25,6 +25,7 @@ import {
   Users,
   XCircle,
 } from "lucide-react"
+import SecurityPanel from "../../components/Admin/SecurityPanel"
 import {
   cancelAdminSession,
   deleteAdminGroup,
@@ -46,6 +47,7 @@ const tabs = [
   ["users", "Usuarios"],
   ["reports", "Reportes"],
   ["audit", "Auditoría"],
+  ["security", "Ciberseguridad"],
 ]
 
 const PAGE_SIZE = 8
@@ -167,7 +169,12 @@ export default function Admin() {
   }, [tab, search, roleFilter, statusFilter])
 
   const list = useMemo(() => {
-    const values = tab === "audit" ? data?.auditLogs : data?.[tab]
+    const values =
+      tab === "audit"
+        ? data?.auditLogs
+        : tab === "security"
+          ? []
+          : data?.[tab]
     const q = search.trim().toLowerCase()
 
     return (values ?? []).filter((item) => {
@@ -434,7 +441,8 @@ export default function Admin() {
             ))}
           </div>
 
-          <div className="flex flex-col gap-2 sm:flex-row">
+          {tab !== "security" && (
+            <div className="flex flex-col gap-2 sm:flex-row">
             {tab === "users" && (
               <>
                 <select
@@ -471,9 +479,25 @@ export default function Admin() {
                 className="w-full rounded-xl border border-slate-200 bg-white py-2.5 pl-10 pr-3 text-sm outline-none focus:border-blue-500 dark:border-slate-700 dark:bg-slate-950 xl:w-72"
               />
             </div>
-          </div>
+            </div>
+          )}
         </div>
 
+        {tab === "security" ? (
+          <div className="mt-5">
+            {role === "admin" ? (
+              <SecurityPanel />
+            ) : (
+              <div className="rounded-3xl border border-amber-200 bg-amber-50 p-8 text-center text-amber-800">
+                <ShieldCheck className="mx-auto" size={42} />
+                <h2 className="mt-4 text-xl font-black">Solo administradores</h2>
+                <p className="mt-2 text-sm">
+                  Los moderadores no pueden acceder al diagnóstico interno de ciberseguridad.
+                </p>
+              </div>
+            )}
+          </div>
+        ) : (
         <div className="mt-5 space-y-3">
           {tab === "materials" &&
             paginatedList.map((item) => (
@@ -848,6 +872,7 @@ export default function Admin() {
             </p>
           )}
         </div>
+        )}
 
         {tab === "users" && list.length > PAGE_SIZE && (
           <div className="mt-6 flex flex-col items-center justify-between gap-3 border-t border-slate-100 pt-5 sm:flex-row dark:border-slate-800">
