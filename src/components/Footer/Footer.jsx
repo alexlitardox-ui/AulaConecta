@@ -1,12 +1,13 @@
 import { Link } from "react-router-dom"
-import { GraduationCap, Heart } from "lucide-react"
+import { GraduationCap, Heart, Mail } from "lucide-react"
+import { SUPPORT_EMAIL } from "../../config/appConfig"
 
 const currentYear = new Date().getFullYear()
 
 function Footer() {
   return (
     <footer className="bg-slate-950 px-5 text-slate-300 sm:px-6 lg:px-8">
-      <div className="mx-auto grid max-w-7xl gap-12 py-16 md:grid-cols-[1.4fr_0.8fr_0.8fr]">
+      <div className="mx-auto grid max-w-7xl gap-12 py-16 md:grid-cols-[1.3fr_0.7fr_0.7fr_1fr]">
         <div>
           <a href="#inicio" className="inline-flex items-center gap-3">
             <span className="flex h-11 w-11 items-center justify-center rounded-2xl bg-blue-600 text-white"><GraduationCap size={23} /></span>
@@ -30,6 +31,14 @@ function Footer() {
             <li><Link to="/login" className="transition hover:text-blue-400">Iniciar sesión</Link></li>
             <li><Link to="/registro" className="transition hover:text-blue-400">Crear cuenta</Link></li>
           </ul>
+        </div>
+
+        <div>
+          <h3 className="font-black text-white">Soporte</h3>
+          <p className="mt-5 text-sm leading-6 text-slate-400">¿Tienes problemas con tu cuenta o con la plataforma?</p>
+          <a href={`mailto:${SUPPORT_EMAIL}`} className="mt-3 inline-flex items-center gap-2 text-sm font-bold text-blue-400 transition hover:text-blue-300">
+            <Mail size={16} /> {SUPPORT_EMAIL}
+          </a>
         </div>
       </div>
 

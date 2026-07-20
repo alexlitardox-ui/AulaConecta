@@ -19,6 +19,8 @@ import {
   XCircle,
 } from "lucide-react"
 import { supabase } from "../../services/supabase"
+import TurnstileWidget from "../../components/Security/TurnstileWidget"
+import { SUPPORT_EMAIL } from "../../config/appConfig"
 
 const benefits = [
   {
@@ -52,6 +54,10 @@ function Login() {
   const [showRecovery, setShowRecovery] = useState(false)
   const [recoveryEmail, setRecoveryEmail] = useState("")
   const [recoveryLoading, setRecoveryLoading] = useState(false)
+  const [captchaToken, setCaptchaToken] = useState("")
+  const [captchaResetKey, setCaptchaResetKey] = useState(0)
+  const [recoveryCaptchaToken, setRecoveryCaptchaToken] = useState("")
+  const [recoveryCaptchaResetKey, setRecoveryCaptchaResetKey] = useState(0)
 
   function handleChange(event) {
     const { name, value } = event.target
@@ -79,12 +85,21 @@ function Login() {
       return
     }
 
+    if (!captchaToken) {
+      setMessage("Completa la verificación de seguridad para continuar.")
+      return
+    }
+
     setLoading(true)
 
     const { error } = await supabase.auth.signInWithPassword({
       email,
       password,
+      options: { captchaToken },
     })
+
+    setCaptchaToken("")
+    setCaptchaResetKey((current) => current + 1)
 
     if (error) {
       const translatedMessage =
@@ -119,12 +134,22 @@ function Login() {
       return
     }
 
+    if (!recoveryCaptchaToken) {
+      setMessage("Completa la verificación de seguridad antes de solicitar el enlace.")
+      setMessageType("error")
+      return
+    }
+
     setRecoveryLoading(true)
     setMessage("")
 
     const { error } = await supabase.auth.resetPasswordForEmail(email, {
       redirectTo: `${window.location.origin}/restablecer-contrasena`,
+      captchaToken: recoveryCaptchaToken,
     })
+
+    setRecoveryCaptchaToken("")
+    setRecoveryCaptchaResetKey((current) => current + 1)
 
     if (error) {
       setMessage(error.message)
@@ -335,9 +360,15 @@ function Login() {
                 </div>
               </div>
 
+              <TurnstileWidget
+                action="login"
+                resetKey={captchaResetKey}
+                onToken={setCaptchaToken}
+              />
+
               <button
                 type="submit"
-                disabled={loading}
+                disabled={loading || !captchaToken}
                 className="flex w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-blue-600 to-indigo-700 px-5 py-4 font-bold text-white shadow-lg shadow-blue-200 transition hover:-translate-y-0.5 hover:shadow-xl hover:shadow-blue-200 disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:translate-y-0"
               >
                 {loading && <LoaderCircle className="animate-spin" size={19} />}
@@ -361,7 +392,10 @@ function Login() {
             </Link>
           </div>
 
-          <p className="mt-6 text-center text-xs leading-5 text-slate-500">
+          <p className="mt-6 text-center text-sm text-slate-500">
+            ¿Problemas para ingresar? <a href={`mailto:${SUPPORT_EMAIL}`} className="font-bold text-blue-700 hover:text-blue-800">{SUPPORT_EMAIL}</a>
+          </p>
+          <p className="mt-3 text-center text-xs leading-5 text-slate-500">
             Al acceder, aceptas usar AulaConecta de forma responsable y dentro
             de su finalidad académica.
           </p>
@@ -434,6 +468,12 @@ function Login() {
                 </div>
               </div>
 
+              <TurnstileWidget
+                action="password_reset"
+                resetKey={recoveryCaptchaResetKey}
+                onToken={setRecoveryCaptchaToken}
+              />
+
               <div className="grid gap-3 sm:grid-cols-2">
                 <button
                   type="button"
@@ -444,7 +484,7 @@ function Login() {
                 </button>
                 <button
                   type="submit"
-                  disabled={recoveryLoading}
+                  disabled={recoveryLoading || !recoveryCaptchaToken}
                   className="flex items-center justify-center gap-2 rounded-2xl bg-blue-600 px-5 py-3.5 font-bold text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   {recoveryLoading && (

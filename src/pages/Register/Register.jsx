@@ -20,6 +20,8 @@ import {
   XCircle,
 } from "lucide-react"
 import { supabase } from "../../services/supabase"
+import TurnstileWidget from "../../components/Security/TurnstileWidget"
+import { SUPPORT_EMAIL } from "../../config/appConfig"
 
 const fieldClass =
   "w-full rounded-2xl border border-slate-200 bg-slate-50 py-3.5 pl-12 pr-4 text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:bg-white focus:ring-4 focus:ring-blue-100 disabled:cursor-not-allowed disabled:opacity-60"
@@ -65,6 +67,8 @@ function Register() {
   const [loading, setLoading] = useState(false)
   const [message, setMessage] = useState("")
   const [messageType, setMessageType] = useState("")
+  const [captchaToken, setCaptchaToken] = useState("")
+  const [captchaResetKey, setCaptchaResetKey] = useState(0)
 
   useEffect(() => {
     async function loadAcademicData() {
@@ -168,8 +172,20 @@ function Register() {
       return
     }
 
+    if (passwordScore < passwordRules.length) {
+      setMessage("La contraseña debe cumplir todos los requisitos de seguridad.")
+      setMessageType("error")
+      return
+    }
+
     if (password !== confirmPassword) {
       setMessage("Las contraseñas no coinciden.")
+      setMessageType("error")
+      return
+    }
+
+    if (!captchaToken) {
+      setMessage("Completa la verificación de seguridad antes de crear la cuenta.")
       setMessageType("error")
       return
     }
@@ -187,8 +203,12 @@ function Register() {
           semester_id: Number(semesterId),
         },
         emailRedirectTo: `${window.location.origin}/cuenta-confirmada`,
+        captchaToken,
       },
     })
+
+    setCaptchaToken("")
+    setCaptchaResetKey((current) => current + 1)
 
     if (error) {
       const translatedMessage =
@@ -689,14 +709,22 @@ function Register() {
                   })}
                 </div>
                 <p className="mt-3 text-xs leading-5 text-slate-500">
-                  Solo se exige un mínimo de 8 caracteres; las demás reglas son
-                  recomendaciones para una cuenta más segura.
+                  La contraseña debe cumplir todos los requisitos indicados.
                 </p>
+              </div>
+
+              <div className="md:col-span-2">
+                <p className="mb-3 text-sm font-bold text-slate-700">Verificación de seguridad</p>
+                <TurnstileWidget
+                  action="signup"
+                  resetKey={captchaResetKey}
+                  onToken={setCaptchaToken}
+                />
               </div>
 
               <button
                 type="submit"
-                disabled={loading || academicLoading || messageType === "success"}
+                disabled={loading || academicLoading || messageType === "success" || !captchaToken}
                 className="flex items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-blue-600 to-indigo-700 px-5 py-4 font-bold text-white shadow-lg shadow-blue-200 transition hover:-translate-y-0.5 hover:shadow-xl hover:shadow-blue-200 disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:translate-y-0 md:col-span-2"
               >
                 {loading && <LoaderCircle className="animate-spin" size={19} />}
@@ -714,6 +742,13 @@ function Register() {
           </section>
 
           <p className="mt-6 text-center text-sm text-slate-600">
+            ¿Necesitas ayuda?{" "}
+            <a href={`mailto:${SUPPORT_EMAIL}`} className="font-bold text-blue-700 transition hover:text-blue-800">
+              {SUPPORT_EMAIL}
+            </a>
+          </p>
+
+          <p className="mt-3 text-center text-sm text-slate-600">
             ¿Ya tienes una cuenta?{" "}
             <Link
               to="/login"
